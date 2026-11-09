@@ -43,6 +43,8 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
 #menu .op:hover:not(:disabled), #menu .op:focus-visible { background: var(--hueso); color: var(--negro); outline: none; }
 #menu .op:hover:not(:disabled) b, #menu .op:hover:not(:disabled) em, #menu .op:focus-visible b, #menu .op:focus-visible em { color: var(--negro); }
 #menu .op:disabled { color: var(--tenue); cursor: default; }
+#menu .op.def i { border-radius: 0; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+#menu .op.ver { grid-template-columns: minmax(0, 1fr); color: var(--gris); border-bottom: 1px solid var(--linea); padding-bottom: 5px; margin-bottom: 2px; font-size: var(--fs-0); }
 #menu .op:disabled i { opacity: .4; }
 #marcador { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; color: var(--gris); font-size: var(--fs-0); font-variant-numeric: tabular-nums; pointer-events: none; white-space: nowrap; }
 #marcador .fila { display: flex; gap: 3px; }
@@ -62,6 +64,7 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
 
 #mando { position: fixed; display: grid; gap: 8px; justify-items: end;
   right: calc(12px + env(safe-area-inset-right, 0px)); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+#creditos { color: var(--hueso); font-size: var(--fs-1); font-variant-numeric: tabular-nums; background: rgba(0, 0, 0, .72); padding: 1px 6px; border-radius: 2px; }
 #clases { display: grid; gap: 0; background: rgba(0, 0, 0, .72); border-radius: 2px; }
 #misiones { display: grid; gap: 1px; width: min(290px, 70vw); max-height: min(36vh, 200px); overflow: hidden; background: var(--negro); font-size: var(--fs-0); font-variant-numeric: tabular-nums; }
 #misiones .m { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto 5ch 2ch; align-items: center; gap: 8px; padding: 1px 6px; color: var(--hueso); }
@@ -104,6 +107,7 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
 .leyenda { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--gris); font-size: var(--fs-0); }
 .leyenda span { display: inline-flex; align-items: center; gap: 6px; }
 .leyenda i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.leyenda i.tri { border-radius: 0; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 .leyenda i.hueco { background: none; border: 1.2px solid var(--hueso); border-radius: 0; transform: rotate(45deg); }
 .leyenda i.gris { border-color: var(--contacto); display: grid; place-items: center; }
 .leyenda i.gris::after { content: ""; width: 2px; height: 2px; background: var(--contacto); }
@@ -180,8 +184,9 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
   <div id="seleccion" hidden>
     <span id="selN"></span>
     <button id="volver" type="button" title="El aire seleccionado vuelve a la base (R)">volver</button>
-    <button id="soltarSel" type="button" title="Soltar la selección (Esc)">soltar</button>
+    <button id="soltarSel" type="button" title="Quitar la selección y volver a todas las opciones (Esc)">sin selección</button>
   </div>
+  <div id="creditos" role="status" aria-label="Créditos"></div>
   <div id="clases" role="radiogroup" aria-label="Clase a lanzar"></div>
   <div id="ctrl">
     <button id="pausa" type="button">pausa</button>
@@ -203,6 +208,7 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
       <li><b>Para empezar:</b> pulsa Empezar, ve hasta una ciudad enemiga y haz clic en ella. Se abre un menú: elige Tomar y quién va.</li>
       <li>El menú ofrece solo lo posible en ese lugar, con cuántas unidades hay y cuánto tardan. Lo gris aparece apagado con el motivo.</li>
       <li><kbd>Arrastra</kbd> para moverte por el mapa; la rueda acerca y aleja. El minimapa te lleva a cualquier punto.</li>
+      <li><b>Defensas:</b> haz clic en tu base o tu territorio y elige Construir. Pagas con créditos: cada ciudad rinde por minuto y conquistar una por primera vez da un bono.</li>
       <li><kbd>Shift+arrastra</kbd> selecciona lo desplegado; con selección, el clic les da la misión. <kbd>V</kbd> acelera.</li>
     </ul>
     <details class="reglas">
@@ -219,7 +225,8 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
         <li>El bosque esconde tropas y la montaña tapa el radar. Frontera y ciudades vigilan.</li>
         <li>Un contacto gris está detectado, sin identificar. Fuera de territorio enemigo, lo gris no se puede bombardear.</li>
         <li>Cuatro satélites no se pueden derribar. El óptico identifica bajo su franja, el radar revela tropas incluso en el bosque, la escucha revela el aire y la alerta temprana avisa cada misil lanzado. Lo que muestran se apaga con el tiempo.</li>
-        <li>La base también se toma: personal dentro de ella durante 45 segundos.</li>
+        <li>La base nace con 2 antiaéreas y 1 antimisil. También se toma: 12 soldados dentro de ella durante 60 segundos.</li>
+        <li>Antiaérea: aviones y drones. Antimisil: misiles que entran en su radio. Fortín: tropas, y aguanta más. Radar: ve e identifica lejos, pero cae al primer golpe. Las defensas se pueden destruir y una obra sin terminar se puede cancelar.</li>
       </ul>
     </details>
     <div class="leyenda">
@@ -229,6 +236,10 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
       <span><i style="--c:var(--personal)"></i>personal</span>
       <span><i style="--c:var(--vehiculo)"></i>vehículo</span>
       <span><i style="--c:var(--espia)"></i>espionaje</span>
+      <span><i class="tri" style="--c:var(--avion)"></i>antiaérea</span>
+      <span><i class="tri" style="--c:var(--misil)"></i>antimisil</span>
+      <span><i class="tri" style="--c:var(--personal)"></i>fortín</span>
+      <span><i class="tri" style="--c:var(--espia)"></i>radar</span>
       <span><i style="--c:var(--hueso)"></i>tuyo</span>
       <span><i class="hueco"></i>enemigo</span>
       <span><i class="hueco gris"></i>sin identificar</span>
@@ -641,6 +652,7 @@ const DOCTRINA = (() => {
   const esSuelo = c => c === PERSONAL || c === VEHICULO;
   const ATQ = 0, INT = 1, TIERRA = 2, ESP = 3, APOYO = 4;
   const MISIONES = { patrullar: INT, interceptar: INT, escolta: INT, atacar: ATQ, bombardear: ATQ, apoyo: APOYO, reconocer: ESP, tomar: TIERRA, defender: TIERRA };
+  const ANTIAEREA = 0, ANTIMISIL = 1, FORTIN = 2, RADAR = 3;
   const IDA = 0, PATRULLA = 1, REGRESO = 2, MOVIL = 3, QUIETO = 4;
   const NOMBRES = ['avión', 'dron', 'misil', 'personal', 'vehículo', 'avión espía', 'dron espía'];
   function admite(c, mis) {
@@ -673,6 +685,20 @@ const DOCTRINA = (() => {
       { cap: 4, ini: 4, cruce: 45, alistar: 45, lineas: 2, inf: 0, vis: 220, idr: 190, rearme: 30, esp: { aguante: 120, orbita: 34 } },
       { cap: 8, ini: 8, cruce: 130, alistar: 20, lineas: 4, inf: 0, vis: 150, idr: 130, rearme: 20, esp: { aguante: 400, orbita: 18 } },
     ],
+    // Economía: las ciudades pagan por minuto; conquistar una por primera vez da un bono.
+    creditos: { inicio: 300, porCiudadMin: 6, bono: 100 },
+    // Defensas: se construyen en territorio propio. La obra tarda y hasta entonces no sirve.
+    defensas: {
+      tope: 14, separacion: 18,
+      tipos: [
+        { nombre: 'antiaérea', costo: 150, obra: 30, hp: 2, rango: 95, cd: 2.4, vis: 4, blanco: 'aire', pk: { 0: 0.40, 1: 0.60, 5: 0.40, 6: 0.60 } },
+        { nombre: 'antimisil', costo: 200, obra: 45, hp: 2, rango: 120, cd: 1.4, vis: 4, blanco: 'misil', pk: 0.55 },
+        { nombre: 'fortín', costo: 120, obra: 30, hp: 6, rango: 46, cd: 1.8, vis: 5, blanco: 'tierra', pk: 0.45 },
+        { nombre: 'radar', costo: 100, obra: 20, hp: 1, rango: 0, cd: 0, vis: 15, idr: 150, blanco: null },
+      ],
+      // La base nace con estas, gratis: ángulo en grados y distancia al centro.
+      iniciales: [{ t: 0, ang: 22, r: 112 }, { t: 0, ang: 68, r: 112 }, { t: 1, ang: 45, r: 70 }],
+    },
     // Misiones aéreas: cada una cambia algo real.
     bombardeo: { r: 44, k: 12, pk: 0.6, ablanda: 0.15 },
     apoyo: { rango: 95, cd: 6, orbita: 30, golpe: { r: 13, k: 2 }, por: { 0: { tiros: 6, aguante: 120 }, 1: { tiros: 3, aguante: 300 } } },
@@ -710,14 +736,14 @@ const DOCTRINA = (() => {
       [0.22, 0.06],
       [0.50, 0.22],
     ],
-    pkRefugio: 0.60, pkAbierto: 0.90, pkAireEnTierra: 0.40,
+    pkRefugio: 0.40, pkAbierto: 0.90, pkAireEnTierra: 0.40,
     suministro: { propio: 1, neutral: 0.85, enemigo: 0.55 },
     prod: [
       { base: 0.10, raiz: 0.0025 },
       { base: 0.015, raiz: 0.0006 },
     ],
     terreno: { tasa: 0.05, ciudad: 0.22, umbral: 0.34, topePorCelda: 4 },
-    ocupacion: { minPersonal: 6, segundos: 45 },
+    ocupacion: { minPersonal: 12, segundos: 60 },
     fortin: { alcance: 26, pk: 1.6, cadencia: 60 },
     radioApoyo: 30,
   };
@@ -800,8 +826,13 @@ const DOCTRINA = (() => {
       ciudades: [], puentes: [], vigia: [[], []], radar: [[], []],
       fotos: [new Map(), new Map()], alertas: [[], []],
       urbes: [], conq: [0, 0], god: false,
+      creditos: [DATOS.creditos.inicio, DATOS.creditos.inicio], defensas: [], sigDef: 1, memDef: [new Map(), new Map()], tomadas: [new Set(), new Set()],
     };
     st.D = Math.hypot(st.bases[0].x - st.bases[1].x, st.bases[0].y - st.bases[1].y);
+    for (let i = 0; i < 2; i++) for (const q of DATOS.defensas.iniciales) {
+      const b = st.bases[i], a = q.ang * Math.PI / 180;
+      st.defensas.push({ id: st.sigDef++, s: i, t: q.t, x: b.x + b.signo * q.r * Math.cos(a), y: b.y - b.signo * q.r * Math.sin(a), hp: DATOS.defensas.tipos[q.t].hp, listo: 0, cd: 0, m: 0, pagado: 0 });
+    }
     st.v = DATOS.clases.map(c => DATOS.dRef / c.cruce);
     const tc = 64, gc = Math.ceil(W / tc) + 1, gr = Math.ceil(H / tc) + 1;
     st.rej = { t: tc, cols: gc, rows: gr, cubos: Array.from({ length: gc * gr * 4 }, () => []) };
@@ -892,7 +923,12 @@ const DOCTRINA = (() => {
       const d = dueno(st, k);
       if (d) st.ter.ind[d > 0 ? 0 : 1] += DATOS.industria.ciudad;
     }
-    for (const u of st.urbes) u.dueno = duenoUrbe(u.celdas, k => dueno(st, k));
+    st.urbes.forEach((u, i) => {
+      u.dueno = duenoUrbe(u.celdas, k => dueno(st, k));
+      if (!u.dueno) return;
+      const q = u.dueno > 0 ? 0 : 1;
+      if (!st.tomadas[q].has(i)) { st.tomadas[q].add(i); if (st.t > 0) st.creditos[q] += DATOS.creditos.bono; }
+    });
   }
   // Una ciudad es de quien controla la mayoría de sus celdas.
   function duenoUrbe(celdas, f) {
@@ -1113,6 +1149,7 @@ const DOCTRINA = (() => {
       if (u.dead) continue;
       estampar(st, u.s, Math.floor(u.x / T.size), Math.floor(u.y / T.size), Math.max(1, Math.round(DATOS.clases[u.c].vis / T.size)));
     }
+    for (const d of st.defensas) estampar(st, d.s, Math.floor(d.x / T.size), Math.floor(d.y / T.size), st.t < d.listo ? 2 : DATOS.defensas.tipos[d.t].vis);
     for (let s = 0; s < 2; s++) {
       const v = st.vis[s], m = st.mem[s];
       for (let i = 0; i < v.length; i++) if (v[i]) m[i] = dueno(st, i);
@@ -1122,6 +1159,18 @@ const DOCTRINA = (() => {
     }
     identificar(st);
     pasarSatelites(st);
+    recordarDefensas(st);
+  }
+  // Cada bando solo conoce las defensas enemigas que alcanzó a ver; si ya no están, lo sabe al volver a mirar.
+  function recordarDefensas(st) {
+    for (let s = 0; s < 2; s++) {
+      const m = st.memDef[s], v = st.vis[s], vivas = new Set();
+      for (const d of st.defensas) if (d.s !== s) {
+        vivas.add(d.id);
+        if (v[celdaDe(st, d.x, d.y)]) m.set(d.id, { id: d.id, x: d.x, y: d.y, t: d.t, s: d.s, enObra: st.t < d.listo });
+      }
+      for (const [id, q] of m) if (!vivas.has(id) && v[celdaDe(st, q.x, q.y)]) m.delete(id);
+    }
   }
   // Satélites: franjas que cruzan el mapa. Cada bando tiene la misma constelación, reflejada.
   function satelites(st, s) {
@@ -1200,6 +1249,7 @@ const DOCTRINA = (() => {
       if (u.idt) continue;
       const b = st.bases[s];
       if (Math.hypot(u.x - b.x, u.y - b.y) <= DATOS.base.rIdent) { u.idt = true; continue; }
+      if (st.defensas.some(d => d.s === s && d.t === RADAR && st.t >= d.listo && Math.hypot(u.x - d.x, u.y - d.y) <= DATOS.defensas.tipos[RADAR].idr)) { u.idt = true; continue; }
       const cerca = w => Math.hypot(w.x - u.x, w.y - u.y) <= DATOS.clases[w.c].idr;
       if (masCercano(st, s, 0, u.x, u.y, RADIO_ID, cerca) || masCercano(st, s, 1, u.x, u.y, RADIO_ID, cerca)) u.idt = true;
     }
@@ -1274,6 +1324,18 @@ const DOCTRINA = (() => {
     u.tx = x; u.ty = y; u.st = IDA;
     return true;
   }
+  // Devuelve el motivo por el que no se puede construir aquí, o '' si se puede.
+  function puedeConstruir(st, s, d, x, y) {
+    const D = DATOS.defensas, ti = D.tipos[d];
+    if (!ti) return 'tipo inválido';
+    const k = celdaDe(st, x, y), b = st.bases[s];
+    if (!transitable(st, k)) return 'aquí no se puede';
+    if (dueno(st, k) !== (s === 0 ? 1 : -1) && Math.hypot(x - b.x, y - b.y) > DATOS.base.rZona) return 'territorio ajeno';
+    if (st.defensas.filter(q => q.s === s).length >= D.tope) return `tope de ${D.tope}`;
+    if (st.defensas.some(q => Math.hypot(q.x - x, q.y - y) < D.separacion)) return 'muy cerca de otra';
+    if (!(s === 0 && st.god) && st.creditos[s] < ti.costo) return `faltan ${Math.ceil(ti.costo - st.creditos[s])}`;
+    return '';
+  }
   function aplicar(st, s, o) {
     if (st.fin || !o) return false;
     if (o.t === 'lanzar') {
@@ -1344,6 +1406,15 @@ const DOCTRINA = (() => {
       for (const u of aire) if (reasignar(st, s, u, x, y, o.mis || null, o.ancla)) { n++; if (o.m) u.m = o.m | 0; }
       return n > 0;
     }
+    if (o.t === 'construir') {
+      if (!Number.isFinite(o.x) || !Number.isFinite(o.y)) return false;
+      const x = clamp(o.x, 0, st.W), y = clamp(o.y, 0, st.H), ti = DATOS.defensas.tipos[o.d];
+      if (puedeConstruir(st, s, o.d, x, y)) return false;
+      const paga = s === 0 && st.god ? 0 : ti.costo;
+      st.creditos[s] -= paga;
+      st.defensas.push({ id: st.sigDef++, s, t: o.d, x, y, hp: ti.hp, listo: st.t + Math.round(ti.obra / DT), cd: 0, m: o.m | 0, pagado: paga });
+      return true;
+    }
     // Cancelar una misión: lo que se alista vuelve a la reserva, el aire regresa y las tropas se detienen.
     // Un misil en vuelo ya no se puede cancelar.
     if (o.t === 'cancelar') {
@@ -1369,6 +1440,11 @@ const DOCTRINA = (() => {
         }
         if (hubo) cola.sort((p, q) => p.listo - q.listo);
       });
+      // Una obra sin terminar se cancela y devuelve lo pagado.
+      for (let i = st.defensas.length - 1; i >= 0; i--) {
+        const d = st.defensas[i];
+        if (d.s === s && d.m === m && st.t < d.listo) { st.creditos[s] += d.pagado; st.defensas.splice(i, 1); n++; }
+      }
       for (const u of st.units) {
         if (u.dead || u.s !== s || u.m !== m) continue;
         if (u.r === TIERRA) { if (u.st !== QUIETO) { u.st = QUIETO; u.via = null; u.tx = u.x; u.ty = u.y; n++; } }
@@ -1412,6 +1488,30 @@ const DOCTRINA = (() => {
     const su = DATOS.suministro;
     return d === propio ? su.propio : d === 0 ? su.neutral : su.enemigo;
   }
+  function danarDefensa(st, d) {
+    d.hp--;
+    if (d.hp > 0) return;
+    const i = st.defensas.indexOf(d);
+    if (i >= 0) st.defensas.splice(i, 1);
+    st.ev.push({ k: 'defensa', x: d.x, y: d.y, d: d.t, s: d.s, t: st.t });
+  }
+  function pasoDefensas(st) {
+    const L = st.defensas, adelante = st.t % 2 === 0;
+    for (let i = adelante ? 0 : L.length - 1; adelante ? i < L.length : i >= 0; i += adelante ? 1 : -1) {
+      const d = L[i], ti = DATOS.defensas.tipos[d.t];
+      if (st.t < d.listo || !ti.blanco) continue;
+      if (d.cd > 0) { d.cd -= DT; continue; }
+      const e = 1 - d.s;
+      const t = ti.blanco === 'tierra' ? masCercano(st, e, 1, d.x, d.y, ti.rango, w => !w.oculto)
+        : ti.blanco === 'misil' ? masCercano(st, e, 0, d.x, d.y, ti.rango, w => w.c === MISIL && w.r === ATQ)
+          : masCercano(st, e, 0, d.x, d.y, ti.rango, w => w.c !== MISIL && !w.oculto);
+      if (!t) continue;
+      d.cd = ti.cd; t.idt = true;
+      st.ev.push({ k: 'tiro', x: d.x, y: d.y, x2: t.x, y2: t.y, c: ti.blanco === 'misil' ? MISIL : ti.blanco === 'aire' ? AVION : PERSONAL, s: d.s, t: st.t });
+      if (azar(st) >= (typeof ti.pk === 'number' ? ti.pk : ti.pk[t.c])) continue;
+      if (ti.blanco === 'tierra') { t.hp--; if (t.hp <= 0) matar(st, t); } else matar(st, t);
+    }
+  }
   function golpear(st, s, x, y, a) {
     const b = st.bases[1 - s];
     const cand = [];
@@ -1431,11 +1531,15 @@ const DOCTRINA = (() => {
         if (d <= a.r) cand.push({ d, u });
       }
     }
-    cand.sort((p, q) => p.d - q.d || (p.ra ? p.ra.idx : p.u.id) - (q.ra ? q.ra.idx : q.u.id));
+    for (const d of st.defensas) if (d.s === 1 - s) { const q = Math.hypot(d.x - x, d.y - y); if (q <= a.r) cand.push({ d: q, de: d }); }
+    const orden = c => (c.ra ? c.ra.idx : c.de ? 1e6 + c.de.id : c.u.id);
+    cand.sort((p, q) => p.d - q.d || orden(p) - orden(q));
     let n = 0;
     for (let i = 0; i < cand.length && n < a.k; i++) {
       const co = cand[i];
-      if (co.ra) {
+      if (co.de) {
+        if (azar(st) < DATOS.pkAbierto * (a.pk || 1)) { danarDefensa(st, co.de); n++; }
+      } else if (co.ra) {
         if (azar(st) < DATOS.pkRefugio * (a.pk || 1)) {
           co.ra.full = false; n++; st.stats.bajas[1 - s]++;
           st.ev.push({ k: 'baja', x: co.ra.x, y: co.ra.y, c: co.ra.c, s: 1 - s, t: st.t, ra: true });
@@ -1553,6 +1657,14 @@ const DOCTRINA = (() => {
           t.hp--;
           if (t.hp <= 0) matar(st, t);
         }
+      }
+    } else if (st.defensas.some(q => q.s === e && Math.hypot(q.x - u.x, q.y - u.y) <= d.rango)) {
+      combate = true;
+      if (u.cd <= 0) {
+        const q = st.defensas.filter(w => w.s === e && Math.hypot(w.x - u.x, w.y - u.y) <= d.rango).sort((p, r) => Math.hypot(p.x - u.x, p.y - u.y) - Math.hypot(r.x - u.x, r.y - u.y) || p.id - r.id)[0];
+        u.cd = d.cd * (0.85 + azar(st) * 0.3); u.idt = true; u.oculto = false;
+        st.ev.push({ k: 'tiro', x: u.x, y: u.y, x2: q.x, y2: q.y, c: u.c, s: u.s, t: st.t });
+        if (azar(st) < DATOS.pkTierra[u.c - 3][u.c - 3]) danarDefensa(st, q);
       }
     } else {
       const b = st.bases[e];
@@ -1704,6 +1816,11 @@ const DOCTRINA = (() => {
       u.px = u.x; u.py = u.y;
       if (u.r === TIERRA) pasoTierra(st, u); else pasoAire(st, u);
     }
+    pasoDefensas(st);
+    if (st.t % 30 === 0) for (let s = 0; s < 2; s++) {
+      const signo = s === 0 ? 1 : -1;
+      st.creditos[s] += st.urbes.filter(u => u.dueno === signo).length * DATOS.creditos.porCiudadMin / 60;
+    }
     let n = 0;
     for (let i = 0; i < st.units.length; i++) if (!st.units[i].dead) st.units[n++] = st.units[i];
     st.units.length = n;
@@ -1738,6 +1855,8 @@ const DOCTRINA = (() => {
       propias, contactos, base: st.bases[s], stock: stockDe(st.bases[s]),
       celdas: st.mem[s], visibles: v, pasable: k => transitable(st, k),
       fotos: [...st.fotos[s].values()], alertas: st.alertas[s],
+      creditos: st.creditos[s], defensas: st.defensas.filter(d => d.s === s),
+      defensasE: st.fin ? st.defensas.filter(d => d.s !== s).map(d => ({ id: d.id, x: d.x, y: d.y, t: d.t, s: d.s, enObra: st.t < d.listo })) : [...st.memDef[s].values()],
       ciudades: st.urbes.map(u => ({ x: u.x, y: u.y, n: u.celdas.length, dueno: st.fin ? u.dueno : duenoUrbe(u.celdas, k => st.mem[s][k]) })),
       baseEnemiga: {
         x: be.x, y: be.y,
@@ -1815,7 +1934,7 @@ const DOCTRINA = (() => {
     const r = mulberry(seed);
     const claves = Object.keys(POSTURAS);
     const n = nombre || claves[Math.floor(r() * claves.length)];
-    return { r, nombre: n, p: POSTURAS[n], proxGolpe: Math.round((50 + r() * 75) * 30), proxEspia: Math.round((30 + r() * 60) * 30), proxApoyo: Math.round((120 + r() * 60) * 30), proxBomba: Math.round((240 + r() * 120) * 30) };
+    return { r, nombre: n, p: POSTURAS[n], proxGolpe: Math.round((50 + r() * 75) * 30), proxEspia: Math.round((30 + r() * 60) * 30), proxApoyo: Math.round((120 + r() * 60) * 30), proxBomba: Math.round((240 + r() * 120) * 30), proxObra: Math.round((20 + r() * 30) * 30) };
   }
   function iaDecidir(ia, v) {
     const o = [], r = ia.r, p = ia.p, s = v.stock;
@@ -1854,6 +1973,21 @@ const DOCTRINA = (() => {
     }
     const mision = (c, q, mis, ancla) => o.push({ t: 'lanzar', c, x: q.x, y: q.y, mis, ancla });
     const noMias = v.ciudades.filter(c => c.dueno !== (v.s === 0 ? 1 : -1));
+    // La IA construye con los mismos créditos y reglas que el jugador.
+    if (v.t >= ia.proxObra) {
+      ia.proxObra = v.t + Math.round((15 + r() * 25) * 30);
+      const T = DATOS.defensas.tipos, cr = v.creditos, enBase = d => Math.hypot(d.x - b.x, d.y - b.y) <= DATOS.base.rZona;
+      const nBase = t => v.defensas.filter(d => d.t === t && enBase(d)).length;
+      const obra = (t, q) => o.push({ t: 'construir', d: t, x: q.x, y: q.y });
+      if (cr >= T[ANTIMISIL].costo && nBase(ANTIMISIL) < 2 && (v.alertas.length || r() < .3)) obra(ANTIMISIL, punto(55, 160, 170));
+      else if (cr >= T[ANTIAEREA].costo && nBase(ANTIAEREA) < 4 && (amenazas.length || r() < .4)) obra(ANTIAEREA, punto(55, 160, 170));
+      else {
+        const signo = v.s === 0 ? 1 : -1, suyas = v.ciudades.filter(c => c.dueno === signo && !v.defensas.some(d => Math.hypot(d.x - c.x, d.y - c.y) < 60));
+        suyas.sort((p, q) => Math.hypot(q.x - b.x, q.y - b.y) - Math.hypot(p.x - b.x, p.y - b.y));
+        if (suyas.length && cr >= T[FORTIN].costo) obra(FORTIN, { x: suyas[0].x + (r() - .5) * 36, y: suyas[0].y + (r() - .5) * 36 });
+        else if (cr >= T[RADAR].costo && v.defensas.filter(d => d.t === RADAR).length < 2 && r() < .5) obra(RADAR, punto(240, 420, 320));
+      }
+    }
     if (v.t >= ia.proxEspia) {
       ia.proxEspia = v.t + Math.round((70 + r() * 70) * 30);
       const gr = v.contactos.filter(u => u.gris);
@@ -1890,6 +2024,10 @@ const DOCTRINA = (() => {
     }
     if (v.t >= ia.proxGolpe) {
       ia.proxGolpe = v.t + Math.round((30 + r() * 55) * 30);
+      if (v.defensasE.length && r() < .4) {
+        const q = v.defensasE[Math.floor(r() * v.defensasE.length)];
+        if (s[MISIL] > p.reservaM) lanza(MISIL, q); else if (s[AVION] > 3) lanza(AVION, q);
+      }
       if (r() < p.golpe) {
         const conocidas = e.ranuras.filter(q => q.full);
         const blancos = conocidas.filter(q => q.c === MISIL || q.c === AVION);
@@ -1950,6 +2088,8 @@ const DOCTRINA = (() => {
     m(st.t); m(st.sem); m(st.units.length);
     for (const u of st.units) { m(u.id); m(u.c); m(u.r); m(Math.round(u.x * 100)); m(Math.round(u.y * 100)); }
     for (const b of st.bases) for (const r of b.ranuras) m(r.full ? 1 : 0);
+    for (const d of st.defensas) { m(d.id); m(d.hp); }
+    m(Math.round(st.creditos[0] * 10)); m(Math.round(st.creditos[1] * 10));
     for (const c of st.ter.ctrl) m(Math.round(c * 1000));
     return h;
   }
@@ -1957,7 +2097,7 @@ const DOCTRINA = (() => {
   return {
     DT, AVION, DRON, MISIL, PERSONAL, VEHICULO, ATQ, INT, TIERRA, IDA, PATRULLA, REGRESO, MOVIL, QUIETO,
     NOMBRES, DATOS, POSTURAS, listas, crear, paso, aplicar, vista, rolPara, sectorEn, celdaDe, dueno, stockDe,
-    autoTierra, iaCrear, iaDecidir, partida, avanzar, hash, mulberry, masCercano, indexar, terreno, vision, transitable, destinoValido, eta, satelites, admite, esSuelo, etaOrden, ESPIA_A, ESPIA_D, ESP, APOYO,
+    autoTierra, iaCrear, iaDecidir, partida, avanzar, hash, mulberry, masCercano, indexar, terreno, vision, transitable, destinoValido, eta, satelites, admite, esSuelo, etaOrden, puedeConstruir, ANTIAEREA, ANTIMISIL, FORTIN, RADAR, ESPIA_A, ESPIA_D, ESP, APOYO,
   };
 })();
 if (typeof module !== 'undefined') module.exports = DOCTRINA;
@@ -1973,6 +2113,8 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
   const tok = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
   const VAR = ['--avion', '--dron', '--misil', '--personal', '--vehiculo', '--espia', '--espia'];
   const COL = VAR.map(tok);
+  // El color de una defensa dice contra qué sirve: aire, misil, tropas; el radar, como el espionaje.
+  const VAR_DEF = ['--avion', '--misil', '--personal', '--espia'], COL_DEF = VAR_DEF.map(tok);
   const NEGRO = tok('--negro'), HUESO = tok('--hueso'), GRIS = tok('--gris'), TENUE = tok('--tenue'), CONTACTO = tok('--contacto');
   const MONO = tok('--mono');
   const calma = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -2097,6 +2239,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
   const propiasMoviles = () => st.units.filter(u => !u.dead && u.s === 0 && u.c !== S.MISIL);
   function fijarSeleccion(ids) { seleccion = new Set(ids); pintarSeleccion(); }
   function limpiarSeleccion() { if (seleccion.size) fijarSeleccion([]); }
+  function quedarSinSeleccion() { limpiarSeleccion(); if (sel !== null) seleccionar(sel); }
   function filtrar(c) {
     const q = propiasMoviles().filter(u => seleccion.has(u.id) && u.c === c).map(u => u.id);
     if (q.length) fijarSeleccion(q); else aviso(`ningún ${S.NOMBRES[c]} en la selección`);
@@ -2218,6 +2361,8 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
   const circulo = (p, x, y, r) => { p.moveTo(x + r, y); p.arc(x, y, r, 0, TAU); };
   const rombo = (p, x, y, r) => { p.moveTo(x, y - r); p.lineTo(x + r, y); p.lineTo(x, y + r); p.lineTo(x - r, y); p.closePath(); };
   const trazosClase = () => COL.map(() => new Path2D());
+  const triangulo = (p, x, y, r) => { p.moveTo(x, y - r); p.lineTo(x + r * .92, y + r * .72); p.lineTo(x - r * .92, y + r * .72); p.closePath(); };
+  const TIPOS_DEF = () => S.DATOS.defensas.tipos;
 
   /* ---------- Dibujo ---------- */
   function linea(c, p, r, h) {
@@ -2296,6 +2441,22 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       else circulo(sano, x, y, 3.6 * fp);
     }
     ctx.strokeStyle = HUESO; ctx.lineWidth = 1; ctx.stroke(sano); ctx.lineWidth = 1.3; ctx.stroke(roto);
+    // Las defensas son triángulos: rellenos los tuyos, huecos los enemigos que has visto.
+    for (const d of v.defensas.concat(v.defensasE)) {
+      const x = X(d.x), y = Y(d.y), propia = d.s === 0, obra = propia ? st.t < d.listo : d.enObra;
+      if (!enVista(x, y)) continue;
+      const q = new Path2D(), r = 6 * fp;
+      triangulo(q, x, y, r);
+      ctx.globalAlpha = obra ? .45 : 1;
+      if (propia) { ctx.fillStyle = COL_DEF[d.t]; ctx.fill(q); }
+      else { ctx.strokeStyle = COL_DEF[d.t]; ctx.lineWidth = 1.2; ctx.stroke(q); }
+      ctx.globalAlpha = 1;
+      if (propia && obra) {
+        const total = TIPOS_DEF()[d.t].obra / S.DT, p = clampV(1 - (d.listo - st.t) / total, 0, 1);
+        ctx.strokeStyle = HUESO; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.arc(x, y, r + 4, -Math.PI / 2, -Math.PI / 2 + TAU * Math.max(.04, p)); ctx.stroke();
+      }
+    }
     // Las ciudades son objetivos: un cuadrado, forma que no usa ninguna unidad.
     ctx.lineWidth = 1.5;
     for (const c of v.ciudades) {
@@ -2480,6 +2641,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     if (e.k === 'tiro') Sonido.sonar('tiro');
     else if (e.k === 'golpe') Sonido.sonar('impacto');
     else if (e.k === 'puente') { registrar('puente destruido', true, e); faro(e.x, e.y, 'puente'); Sonido.sonar('impacto'); }
+    else if (e.k === 'defensa') { if (e.s === 0) { registrar(`${TIPOS_DEF()[e.d].nombre} destruida`, true, e); faro(e.x, e.y, 'base'); } Sonido.sonar('impacto'); }
     else if (e.s === 0) {
       if (e.ra) { acu.base++; Sonido.sonar('base'); } else { acu.pro[e.c]++; acu.lugar = { x: e.x, y: e.y }; }
     } else acu.ene[e.c]++;
@@ -2497,7 +2659,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       const t = (st.t - e.t) * S.DT;
       if (t > 1) continue;
       if (!enVista(X(e.x), Y(e.y), 60)) { nuevos.push(e); continue; }
-      if (e.k === 'puente') {
+      if (e.k === 'puente' || e.k === 'defensa') {
         if (t > .8) continue;
         ctx.strokeStyle = HUESO; ctx.globalAlpha = 1 - t / .8; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.arc(X(e.x), Y(e.y), 4 + (calma ? 8 : t * 26), 0, TAU); ctx.stroke();
@@ -2567,6 +2729,11 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     const c = S.sectorEn(st.bases[0], p.x, p.y);
     if (c >= 0 && !leerLugar(p).cont) { etiqueta(X(p.x), Y(p.y), sel === c ? `quitar filtro ${S.NOMBRES[c]}` : `filtrar ${S.NOMBRES[c]}`); return; }
     const l = leerLugar(p);
+    if (l.def && TIPOS_DEF()[l.def.t].rango) {
+      const R = TIPOS_DEF()[l.def.t].rango * s;
+      ctx.strokeStyle = COL_DEF[l.def.t]; ctx.globalAlpha = .4; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(X(l.def.x), Y(l.def.y), R, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1;
+    }
     if (l.especial) etiqueta(X(p.x), Y(p.y), l.titulo);
   }
 
@@ -2629,6 +2796,8 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       if (c.dueno > 0) { mc.fillStyle = HUESO; mc.fillRect(x, y, 4, 4); }
       else { mc.strokeStyle = c.dueno < 0 ? HUESO : GRIS; mc.lineWidth = 1; mc.strokeRect(x + .5, y + .5, 3, 3); }
     }
+    for (const d of v.defensas) { mc.fillStyle = COL_DEF[d.t]; mc.fillRect(d.x * k - 1.5, d.y * k - 1.5, 3, 3); }
+    for (const d of v.defensasE) { mc.strokeStyle = COL_DEF[d.t]; mc.lineWidth = 1; mc.strokeRect(Math.round(d.x * k) - 1.5, Math.round(d.y * k) - 1.5, 3, 3); }
     for (const u of v.propias) { mc.fillStyle = COL[u.c]; mc.fillRect(u.x * k - 1, u.y * k - 1, 2, 2); }
     mc.lineWidth = 1;
     for (const u of v.contactos) {
@@ -2690,7 +2859,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     const agua = !S.transitable(st, k);
     const baseE = Math.hypot(p.x - st.bases[1].x, p.y - st.bases[1].y) <= S.DATOS.base.rZona;
     const baseP = Math.hypot(p.x - st.bases[0].x, p.y - st.bases[0].y) <= S.DATOS.base.rZona;
-    const lejos = clampV(1.6 / s, 1, 2.6), urbe = cerca(v.ciudades, 24 * lejos), puente = cerca(puentesUI, 16 * lejos), cont = cerca(v.contactos, 18 * lejos);
+    const lejos = clampV(1.6 / s, 1, 2.6), def = cerca(v.defensas.concat(v.defensasE), 13 * lejos), urbe = cerca(v.ciudades, 24 * lejos), puente = cerca(puentesUI, 16 * lejos), cont = cerca(v.contactos, 18 * lejos);
     const aliT = cerca(v.propias.filter(u => u.r === S.TIERRA), 34);
     const aliA = cerca(v.propias.filter(u => u.c === S.AVION && u.st !== S.REGRESO), 16);
     const propio = d === 1, enemigo = d === -1 || baseE, gris = !!(cont && cont.gris);
@@ -2699,9 +2868,9 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     const puenteE = !!(puente && d === -1);
     const nE = v.contactos.filter(u => Math.hypot(u.x - p.x, u.y - p.y) <= 60).length;
     const nP = v.propias.filter(u => u.r === S.TIERRA && Math.hypot(u.x - p.x, u.y - p.y) <= 60).length;
-    const titulo = baseE ? 'Base enemiga' : baseP ? 'Tu base' : gris ? 'Contacto sin identificar' : tropa ? `${S.NOMBRES[cont.c]} enemigo` : aireE ? `${S.NOMBRES[cont.c]} enemigo` : urbe ? (urbe.dueno === 1 ? 'Ciudad tuya' : urbe.dueno === -1 ? 'Ciudad enemiga' : 'Ciudad en disputa') : puente ? (puenteE ? 'Puente enemigo' : 'Puente') : agua ? 'Agua' : propio ? 'Territorio propio' : enemigo ? 'Territorio enemigo' : 'Territorio en disputa';
+    const titulo = def ? `${TIPOS_DEF()[def.t].nombre} ${def.s === 0 ? 'tuya' : 'enemiga'}` : baseE ? 'Base enemiga' : baseP ? 'Tu base' : gris ? 'Contacto sin identificar' : tropa ? `${S.NOMBRES[cont.c]} enemigo` : aireE ? `${S.NOMBRES[cont.c]} enemigo` : urbe ? (urbe.dueno === 1 ? 'Ciudad tuya' : urbe.dueno === -1 ? 'Ciudad enemiga' : 'Ciudad en disputa') : puente ? (puenteE ? 'Puente enemigo' : 'Puente') : agua ? 'Agua' : propio ? 'Territorio propio' : enemigo ? 'Territorio enemigo' : 'Territorio en disputa';
     const presencia = nE && nP ? `en combate: ${nE} enemigos, ${nP} tuyas` : nE ? `ocupado: ${nE} ${nE === 1 ? 'enemigo' : 'enemigos'} a la vista` : nP ? `${nP} ${nP === 1 ? 'unidad tuya' : 'unidades tuyas'}` : 'libre a la vista';
-    return { p, v, agua, baseE, baseP, urbe, puente, cont, gris, tropa, aireE, aliT, aliA, propio, enemigo, ciudadE, ciudadP, puenteE, titulo, presencia, especial: !!(baseE || gris || tropa || aireE || urbe || puente) };
+    return { p, v, def, agua, baseE, baseP, urbe, puente, cont, gris, tropa, aireE, aliT, aliA, propio, enemigo, ciudadE, ciudadP, puenteE, titulo, presencia, especial: !!(def || baseE || gris || tropa || aireE || urbe || puente) };
   }
   function accionesDe(l) {
     const P = S.PERSONAL, V = S.VEHICULO, AV = S.AVION, D = S.DRON, M = S.MISIL, a = [];
@@ -2716,7 +2885,9 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     if (l.gris || l.aireE) a.push({ id: 'interceptar', n: 'Interceptar', mis: 'interceptar', prov: [AV, D, M] });
     else a.push({ id: 'patrullar', n: 'Patrullar', mis: 'patrullar', prov: [AV, D] });
     a.push({ id: 'reconocer', n: l.gris ? 'Identificar' : l.propio ? 'Vigilar' : 'Reconocer', mis: 'reconocer', prov: [S.ESPIA_A, S.ESPIA_D] });
-    return a.slice(0, 5);
+    const r = a.slice(0, 5);
+    if (!l.agua && (l.propio || l.baseP)) r.push({ id: 'construir', n: `Construir · ${st.god ? '∞' : Math.floor(st.creditos[0])} créditos`, construir: true });
+    return r;
   }
   function filasDelMenu() {
     const { l } = menuAb, b = st.bases[0], filas = [], acciones = accionesDe(l);
@@ -2728,13 +2899,19 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       }
       return filas;
     }
-    for (const a of acciones) for (const c of a.prov) {
+    for (const a of acciones) {
+      if (a.construir) {
+        if (sel === null) TIPOS_DEF().forEach((ti, d) => { const motivo = S.puedeConstruir(st, 0, d, l.p.x, l.p.y); filas.push({ a, d, ti, ok: !motivo, motivo }); });
+        continue;
+      }
+      for (const c of a.prov) {
       if (sel !== null && c !== sel) continue;
       const hay = S.listas(b, c, st.t), eta = S.etaOrden(st, 0, c, l.p.x, l.p.y);
       // Interceptar con un misil solo tiene sentido con uno en alerta: alistar otro tarda más que el blanco en irse.
       const alerta = b.porClase[c].some(r => r.full && r.lista && !r.prep);
       const motivo = a.off || (!hay ? 'sin reserva' : a.id === 'interceptar' && c === S.MISIL && !alerta ? 'ninguno en alerta' : Number.isFinite(eta) ? '' : 'sin ruta');
       filas.push({ a, c, ok: !motivo, motivo, hay, eta });
+      }
     }
     return filas;
   }
@@ -2751,6 +2928,17 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       QTY.forEach(n => { const b = document.createElement('button'); b.type = 'button'; b.textContent = '×' + n; b.setAttribute('aria-pressed', String(n === cantidad)); b.dataset.q = n; b.addEventListener('click', () => { cantidad = n; pintarMenu(); }); q.appendChild(b); });
       caja.appendChild(q);
     }
+    // Con selección o filtro el menú se reduce: esta fila devuelve todas las opciones sin cerrarlo.
+    if (haySel || sel !== null) {
+      const v = document.createElement('button');
+      v.type = 'button'; v.className = 'op ver'; v.dataset.a = 'ver-todas'; v.setAttribute('role', 'menuitem');
+      const n = propiasMoviles().filter(u => seleccion.has(u.id)).length;
+      const et = document.createElement('span');
+      et.textContent = `${haySel ? `${n} ${n === 1 ? 'seleccionada' : 'seleccionadas'}` : `filtro ${S.NOMBRES[sel]}`} · ver todas las opciones`;
+      v.appendChild(et);
+      v.addEventListener('click', () => { quedarSinSeleccion(); pintarMenu(); });
+      caja.appendChild(v);
+    }
     let grupo = null, primera = null, preferida = null;
     if (!filas.length) { const v = document.createElement('p'); v.textContent = sel !== null ? `${S.NOMBRES[sel]} no puede actuar aquí` : 'Nada que hacer aquí'; caja.appendChild(v); }
     for (const f of filas) {
@@ -2759,18 +2947,20 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
         const h = document.createElement('div'); h.className = 'acc'; h.textContent = f.a.n; caja.appendChild(h);
       }
       const b = document.createElement('button');
-      b.type = 'button'; b.className = 'op'; b.setAttribute('role', 'menuitem'); b.dataset.a = f.a.id;
+      const esObra = f.d !== undefined;
+      b.type = 'button'; b.className = esObra ? 'op def' : 'op'; b.setAttribute('role', 'menuitem'); b.dataset.a = f.a.id;
       if (f.c !== undefined) b.dataset.c = f.c;
+      if (esObra) b.dataset.d = f.d;
       b.disabled = !f.ok;
-      const i = document.createElement('i'); i.style.setProperty('--c', f.c !== undefined ? `var(${VAR[f.c]})` : 'var(--hueso)');
-      const nom = document.createElement('span'); nom.textContent = f.c !== undefined ? S.NOMBRES[f.c] : f.txt;
-      const cant = document.createElement('b'); cant.textContent = f.c !== undefined ? f.hay : '';
-      const fin = document.createElement('em'); fin.textContent = f.motivo || (f.c !== undefined ? reloj(f.eta) : '');
+      const i = document.createElement('i'); i.style.setProperty('--c', esObra ? `var(${VAR_DEF[f.d]})` : f.c !== undefined ? `var(${VAR[f.c]})` : 'var(--hueso)');
+      const nom = document.createElement('span'); nom.textContent = esObra ? f.ti.nombre : f.c !== undefined ? S.NOMBRES[f.c] : f.txt;
+      const cant = document.createElement('b'); cant.textContent = esObra ? f.ti.costo : f.c !== undefined ? f.hay : '';
+      const fin = document.createElement('em'); fin.textContent = f.motivo || (esObra ? reloj(f.ti.obra) : f.c !== undefined ? reloj(f.eta) : '');
       b.append(i, nom, cant, fin);
       b.addEventListener('click', () => ejecutarFila(f));
       caja.appendChild(b);
       if (f.ok && !primera) primera = b;
-      if (f.ok && ultima && ultima.a === f.a.id && ultima.c === f.c) preferida = b;
+      if (f.ok && ultima && ultima.a === f.a.id && ultima.c === f.c && ultima.d === f.d) preferida = b;
     }
     if (haySel && [...seleccion].length && propiasMoviles().some(u => seleccion.has(u.id) && u.r !== S.TIERRA)) {
       const b = document.createElement('button'); b.type = 'button'; b.className = 'op'; b.dataset.a = 'volver';
@@ -2799,6 +2989,14 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     // En pantallas táctiles, el toque que abre el menú no debe activar una opción.
     if (!menuAb || (menuAb.toque && performance.now() - menuAb.t0 < 350)) return;
     const p = menuAb.p, a = f.a;
+    if (f.d !== undefined) {
+      const m = crearMision(-1, 'construir');
+      m.n = 1; m.obra = true; m.nombre = f.ti.nombre; m.colorDef = f.d;
+      if (S.aplicar(st, 0, { t: 'construir', d: f.d, x: p.x, y: p.y, m: m.id })) { ultima = { a: a.id, d: f.d }; marca = { x: p.x, y: p.y, ms: performance.now() }; }
+      else { quitarMision(m); aviso('no se pudo construir aquí'); }
+      tHud = 0; cerrarMenu();
+      return;
+    }
     if (f.ids) {
       const us = propiasMoviles().filter(u => f.ids.includes(u.id)), clases = new Set(us.map(u => u.c));
       const m = crearMision(clases.size === 1 ? us[0].c : -1, a.mis);
@@ -2845,6 +3043,12 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     st.bases[0].cola.forEach(c => c.forEach(q => { if (q.m) colaM.set(q.m, Math.max(colaM.get(q.m) || 0, q.listo)); }));
     for (const m of misiones) {
       if (m.fin) continue;
+      if (m.obra) {
+        const d = st.defensas.find(x => x.s === 0 && x.m === m.id);
+        if (d && st.t < d.listo) { m.texto = 'obra'; m.tiempo = reloj((d.listo - st.t) * S.DT); m.cancelable = true; continue; }
+        m.cancelable = false; m.tiempo = ''; m.fin = m.cancelada ? 'cancelada' : d ? 'lista' : 'destruida'; m.texto = m.fin; m.finMs = ahora;
+        continue;
+      }
       const us = porM.get(m.id) || [];
       if (us.length) m.salio = true;
       m.cancelable = colaM.has(m.id) || us.some(u => u.c !== S.MISIL && (u.r === S.TIERRA ? u.st !== S.QUIETO : u.st !== S.REGRESO));
@@ -2875,8 +3079,8 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     if (ocultas) { const d = document.createElement('div'); d.className = 'm mas'; d.textContent = `+${ocultas} misiones más`; caja.appendChild(d); }
     for (const m of misiones.slice(-max)) {
       const d = document.createElement('div'); d.className = 'm' + (m.fin ? ' fin' : '');
-      const i = document.createElement('i'); i.style.setProperty('--c', m.c >= 0 ? `var(${VAR[m.c]})` : 'var(--hueso)');
-      const a = document.createElement('span'); a.textContent = `M${m.id} ${m.accion ? m.accion + ' · ' : ''}${m.c >= 0 ? S.NOMBRES[m.c] : 'grupo'}${m.n > 1 ? ` ×${m.n}` : ''}`;
+      const i = document.createElement('i'); i.style.setProperty('--c', m.colorDef !== undefined ? `var(${VAR_DEF[m.colorDef]})` : m.c >= 0 ? `var(${VAR[m.c]})` : 'var(--hueso)');
+      const a = document.createElement('span'); a.textContent = `M${m.id} ${m.accion ? m.accion + ' · ' : ''}${m.nombre || (m.c >= 0 ? S.NOMBRES[m.c] : 'grupo')}${m.n > 1 ? ` ×${m.n}` : ''}`;
       const e = document.createElement('span'); e.className = 'e'; e.textContent = m.texto;
       const t = document.createElement('b'); t.textContent = m.tiempo;
       // El panel se repinta a menudo: el botón responde al pulsar, en el contenedor.
@@ -3016,7 +3220,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
   conClic('modo', alternarAuto);
   conClic('todas', seleccionarTodas);
   conClic('sonido', alternarSonido);
-  conClic('soltarSel', limpiarSeleccion);
+  conClic('soltarSel', quedarSinSeleccion);
   conClic('volver', regresarSeleccion);
   conClic('zMas', () => cambiarNivel(1));
   conClic('zMenos', () => cambiarNivel(-1));
@@ -3072,7 +3276,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     if (e.code === 'Space' && !enBoton) {
       e.preventDefault();
       if (!$('parte').hidden) empezar(); else alternarPausa();
-    } else if (e.key === 'Escape') limpiarSeleccion();
+    } else if (e.key === 'Escape') quedarSinSeleccion();
     else if (k === 'v') alternarVel();
     else if (k === 'a') alternarAuto();
     else if (k === 't') seleccionarTodas();
@@ -3223,6 +3427,10 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       if (st.conq[0] > 0 || st.conq[1] > 0) tx.className = 'urge';
       mk.append(fila, tx);
     }
+    const cr = Math.floor(st.creditos[0]), renta = v.ciudades.filter(c => c.dueno > 0).length * S.DATOS.creditos.porCiudadMin;
+    $('creditos').textContent = st.god ? 'créditos ∞' : `créditos ${cr} · +${renta}/min`;
+    if (marcas.cr !== undefined && st.creditos[0] - marcas.cr >= S.DATOS.creditos.bono - 1) aviso(`+${S.DATOS.creditos.bono} créditos por conquista`, 2600);
+    marcas.cr = st.creditos[0];
     const sat = $('sat');
     sat.textContent = '';
     S.satelites(st, 0).forEach(q => {
