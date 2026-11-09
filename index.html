@@ -64,13 +64,15 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
   right: calc(12px + env(safe-area-inset-right, 0px)); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
 #clases { display: grid; gap: 0; background: rgba(0, 0, 0, .72); border-radius: 2px; }
 #misiones { display: grid; gap: 1px; width: min(290px, 70vw); max-height: min(36vh, 200px); overflow: hidden; background: var(--negro); font-size: var(--fs-0); font-variant-numeric: tabular-nums; }
-#misiones .m { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto 5ch; align-items: center; gap: 8px; padding: 1px 6px; color: var(--hueso); }
+#misiones .m { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto 5ch 2ch; align-items: center; gap: 8px; padding: 1px 6px; color: var(--hueso); }
 #misiones .m i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
 #misiones .m span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #misiones .m .e { color: var(--gris); }
 #misiones .m b { font-weight: 400; text-align: right; }
 #misiones .m.fin { opacity: .55; }
 #misiones .m.mas { display: block; color: var(--gris); }
+#misiones .x { color: var(--gris); text-align: center; line-height: 1; }
+#misiones .x:hover { color: var(--negro); background: var(--hueso); }
 #seleccion { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 4px 8px; font-size: var(--fs-0); }
 #seleccion button { padding: 3px 8px; border: 1px solid var(--tenue); background: var(--negro); color: var(--hueso); }
 #clases button { display: grid; grid-template-columns: 10px 1fr 3ch 3ch; align-items: center; gap: 8px; min-width: 164px; padding: 3px 6px; color: var(--gris); font-variant-numeric: tabular-nums; text-align: left; }
@@ -134,6 +136,7 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
   #menu .cant button { padding: 6px 10px; }
   #clases button { padding-block: 8px; }
   #ctrl button, #vistas button { padding: 8px 10px; }
+  #misiones .x { padding: 6px 0; }
 }
 @media (max-width: 520px) {
   #clases button { min-width: 142px; gap: 6px; }
@@ -210,6 +213,7 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
         <li>Patrullar espera en una zona. Atacar es preciso. Bombardear cubre más, falla más y ablanda ciudades. Apoyo aéreo sigue a tus tropas. Escoltar protege a otro avión. Defender no convierte terreno, pero recibe menos daño.</li>
         <li>Avión y dron espía no combaten: identifican de lejos y dejan fotos. El dron espía no aparece en radar.</li>
         <li>Alistar: personal 10 s, dron 25 s, vehículo 45 s, avión y misil 60 s. El aire con anillo ya está listo y sale al instante. Las órdenes aparecen abajo a la derecha con su contador.</li>
+        <li>Cada orden tiene una <kbd>×</kbd> para cancelarla (<kbd>X</kbd> cancela la última): lo que se alista vuelve a la reserva, el aire regresa y las tropas se detienen. Un misil lanzado no se puede cancelar.</li>
         <li>Solo el personal convierte terreno. Las ciudades cuestan mucho más y se defienden: lleva tropas de sobra. Terreno y ciudades producen tropas. El aire no se repone.</li>
         <li>El agua solo se cruza por puentes, que se pueden bombardear y tardan 3 minutos en repararse. Caminos aceleran; bosque y montaña frenan.</li>
         <li>El bosque esconde tropas y la montaña tapa el radar. Frontera y ciudades vigilan.</li>
@@ -1284,7 +1288,8 @@ const DOCTRINA = (() => {
       if (!ra) return false;
       // Alistar: la unidad sigue en su ranura, y por tanto expuesta, hasta que sale.
       // Cada clase tiene varias líneas en paralelo: las primeras órdenes salen juntas.
-      let listo;
+      let listo, linea = -1;
+      const eraLista = ra.lista;
       if (ra.lista) {
         ra.lista = false;
         listo = st.t + Math.round(DATOS.listas.salida / DT);
@@ -1295,6 +1300,7 @@ const DOCTRINA = (() => {
         for (let i = 1; i < ls.length; i++) if (ls[i] < ls[li]) li = i;
         listo = Math.max(st.t, ls[li]) + espera;
         ls[li] = listo;
+        linea = li;
       }
       const mision = o.m | 0, mis = o.mis || null;
       // Un misil interceptor se fija en la nave aérea visible más cercana al punto ordenado.
@@ -1305,7 +1311,9 @@ const DOCTRINA = (() => {
       }
       if (listo <= st.t) return lanzarDesde(st, s, ra, x, y, mision, mis, ancla);
       ra.prep = true;
-      cola.push({ x, y, ra, listo, m: mision, mis, ancla });
+      cola.push({ x, y, ra, listo, m: mision, mis, ancla, linea, eraLista });
+      // La cola sale por orden de tiempo: una unidad en alerta no espera detrás de otra que se alista.
+      cola.sort((p, q) => p.listo - q.listo);
       return true;
     }
     if (o.t === 'mover') {
@@ -1334,6 +1342,38 @@ const DOCTRINA = (() => {
         }
       }
       for (const u of aire) if (reasignar(st, s, u, x, y, o.mis || null, o.ancla)) { n++; if (o.m) u.m = o.m | 0; }
+      return n > 0;
+    }
+    // Cancelar una misión: lo que se alista vuelve a la reserva, el aire regresa y las tropas se detienen.
+    // Un misil en vuelo ya no se puede cancelar.
+    if (o.t === 'cancelar') {
+      const m = o.m | 0, b = st.bases[s];
+      if (!m) return false;
+      let n = 0;
+      b.cola.forEach((cola, c) => {
+        const espera = Math.round(DATOS.clases[c].alistar / DT);
+        let hubo = false;
+        for (let i = cola.length - 1; i >= 0; i--) {
+          const q = cola[i];
+          if (q.m !== m) continue;
+          cola.splice(i, 1);
+          q.ra.prep = false;
+          if (q.eraLista) q.ra.lista = true;
+          if (q.linea >= 0) {
+            // La línea queda libre: lo que esperaba detrás sale antes.
+            const libera = Math.min(espera, q.listo - st.t);
+            for (const w of cola) if (w.linea === q.linea && w.listo > q.listo) w.listo -= libera;
+            b.lineas[c][q.linea] -= libera;
+          }
+          hubo = true; n++;
+        }
+        if (hubo) cola.sort((p, q) => p.listo - q.listo);
+      });
+      for (const u of st.units) {
+        if (u.dead || u.s !== s || u.m !== m) continue;
+        if (u.r === TIERRA) { if (u.st !== QUIETO) { u.st = QUIETO; u.via = null; u.tx = u.x; u.ty = u.y; n++; } }
+        else if (u.c !== MISIL && u.st !== REGRESO) { u.st = REGRESO; n++; }
+      }
       return n > 0;
     }
     if (o.t === 'regresar') {
@@ -2033,6 +2073,25 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     botones.forEach((b, i) => b.setAttribute('aria-checked', String(i === sel)));
     if (menuAb) pintarMenu();
   }
+
+  /* ---------- Cancelar misiones ---------- */
+  function cancelarMision(m) {
+    if (!m || m.fin || !S.aplicar(st, 0, { t: 'cancelar', m: m.id })) return false;
+    m.cancelada = true; m.cancelable = false;
+    aviso(`M${m.id} cancelada`);
+    tHud = 0;
+    return true;
+  }
+  function cancelarUltima() {
+    for (let i = misiones.length - 1; i >= 0; i--) if (!misiones[i].fin && misiones[i].cancelable) { cancelarMision(misiones[i]); return; }
+    aviso('nada que cancelar');
+  }
+  $('misiones').addEventListener('pointerdown', e => {
+    const b = e.target.closest && e.target.closest('button.x');
+    if (!b) return;
+    e.preventDefault();
+    cancelarMision(misiones.find(m => m.id === +b.dataset.m));
+  });
 
   /* ---------- Selección ---------- */
   const propiasMoviles = () => st.units.filter(u => !u.dead && u.s === 0 && u.c !== S.MISIL);
@@ -2788,6 +2847,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       if (m.fin) continue;
       const us = porM.get(m.id) || [];
       if (us.length) m.salio = true;
+      m.cancelable = colaM.has(m.id) || us.some(u => u.c !== S.MISIL && (u.r === S.TIERRA ? u.st !== S.QUIETO : u.st !== S.REGRESO));
       if (colaM.has(m.id)) { m.texto = 'alista'; m.tiempo = reloj((colaM.get(m.id) - st.t) * S.DT); continue; }
       let peor = null, quietos = 0;
       for (const u of us) {
@@ -2797,7 +2857,8 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       }
       if (peor) { m.texto = peor[0]; m.tiempo = peor[1] >= 0 ? reloj(peor[1]) : ''; continue; }
       m.tiempo = '';
-      if (quietos) m.fin = m.perdidas ? `en posición ${quietos}/${m.n}` : 'en posición';
+      if (m.cancelada) m.fin = 'cancelada';
+      else if (quietos) m.fin = m.perdidas ? `en posición ${quietos}/${m.n}` : 'en posición';
       else if (!m.salio) m.fin = 'cancelada';
       else if (m.reasig && !m.perdidas) m.fin = 'reasignada';
       else if (m.perdidas >= m.n) m.fin = 'perdida';
@@ -2818,7 +2879,10 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       const a = document.createElement('span'); a.textContent = `M${m.id} ${m.accion ? m.accion + ' · ' : ''}${m.c >= 0 ? S.NOMBRES[m.c] : 'grupo'}${m.n > 1 ? ` ×${m.n}` : ''}`;
       const e = document.createElement('span'); e.className = 'e'; e.textContent = m.texto;
       const t = document.createElement('b'); t.textContent = m.tiempo;
-      d.append(i, a, e, t);
+      // El panel se repinta a menudo: el botón responde al pulsar, en el contenedor.
+      const x = document.createElement(!m.fin && m.cancelable ? 'button' : 'span');
+      if (x.tagName === 'BUTTON') { x.type = 'button'; x.className = 'x'; x.dataset.m = m.id; x.textContent = '×'; x.title = 'Cancelar esta misión (X cancela la última)'; x.setAttribute('aria-label', `Cancelar misión ${m.id}`); }
+      d.append(i, a, e, t, x);
       caja.appendChild(d);
     }
   }
@@ -3018,6 +3082,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     else if (e.key === '-') cambiarNivel(-1);
     else if (k === 'b') { acabarTrans(); irABase(); }
     else if (k === 'c') alternarCaja();
+    else if (k === 'x') cancelarUltima();
     else if (k === 'f') { const f = ultimoFaro(); if (f) { acabarTrans(); centrar(f.x, f.y); } else aviso('sin alertas recientes'); }
     else if (k === 'h' || e.key === '?') abrirParte($('parte').hidden);
   });
