@@ -1,0 +1,3234 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>doctrina</title>
+<style>
+/* Consola de teatro: negro total. El color nombra la clase, el relleno el bando, el gris el dueño del terreno. */
+:root {
+  --negro: #000000; --hueso: #ece7db; --gris: #8d8c85; --tenue: #55544f; --linea: #2b2a27; --panel: #0b0b0a; --contacto: #9c9b94;
+  --t-rio: #6f6e68; --t-costa: #55544f; --t-camino: #5f5e58; --t-frontera: #9a988f;
+  --avion: #56b4e9; --dron: #f0e442; --misil: #ff6a13; --personal: #ece7db; --vehiculo: #cc79a7; --espia: #2fc79f;
+  --mono: "Fira Code", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --fs-0: 11px; --fs-1: 12px; --fs-2: 14px; --fs-3: 22px;
+  color-scheme: dark;
+}
+html, body { height: 100%; background: var(--negro); overflow: hidden; }
+body { color: var(--hueso); font: var(--fs-1)/1.5 var(--mono); -webkit-font-smoothing: antialiased; }
+canvas#mapa { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; background: var(--negro); }
+canvas#mapa.arrastrando { cursor: grabbing; }
+canvas#mapa.sobre-flecha { cursor: pointer; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; border-radius: 2px; }
+button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
+
+#cabecera { position: fixed; display: grid; gap: 2px; pointer-events: none;
+  top: calc(10px + env(safe-area-inset-top, 0px)); left: calc(12px + env(safe-area-inset-left, 0px)); }
+#titulo { pointer-events: auto; justify-self: start; font-size: var(--fs-2); font-weight: 600; letter-spacing: .04em; }
+#estado { color: var(--gris); font-size: var(--fs-0); font-variant-numeric: tabular-nums; }
+#menu { position: fixed; left: 0; top: 0; z-index: 5; width: 250px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow-y: auto; background: var(--panel); border: 1px solid var(--tenue); border-radius: 2px; padding: 6px; display: grid; gap: 1px; font-variant-numeric: tabular-nums; }
+#menu .cab { display: grid; padding: 2px 4px 5px; }
+#menu .cab b { font-weight: 600; font-size: var(--fs-1); }
+#menu .cab span { color: var(--gris); font-size: var(--fs-0); }
+#menu p { margin: 0; padding: 4px; color: var(--gris); }
+#menu .cant { display: flex; align-items: center; gap: 4px; padding: 0 4px 5px; color: var(--gris); font-size: var(--fs-0); }
+#menu .cant span { flex: 1; }
+#menu .cant button { padding: 1px 6px; border: 1px solid var(--linea); color: var(--gris); font-size: var(--fs-0); }
+#menu .cant button[aria-pressed="true"] { color: var(--negro); background: var(--hueso); border-color: var(--hueso); }
+#menu .acc { padding: 5px 4px 1px; color: var(--tenue); font-size: var(--fs-0); letter-spacing: .08em; text-transform: uppercase; }
+#menu .op { display: grid; grid-template-columns: 8px minmax(0, 1fr) 3ch auto; align-items: center; gap: 8px; width: 100%; padding: 3px 4px; text-align: left; color: var(--hueso); }
+#menu .op i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+#menu .op b { font-weight: 400; text-align: right; color: var(--gris); }
+#menu .op em { font-style: normal; color: var(--gris); text-align: right; font-size: var(--fs-0); white-space: nowrap; }
+#menu .op:hover:not(:disabled), #menu .op:focus-visible { background: var(--hueso); color: var(--negro); outline: none; }
+#menu .op:hover:not(:disabled) b, #menu .op:hover:not(:disabled) em, #menu .op:focus-visible b, #menu .op:focus-visible em { color: var(--negro); }
+#menu .op:disabled { color: var(--tenue); cursor: default; }
+#menu .op:disabled i { opacity: .4; }
+#marcador { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; color: var(--gris); font-size: var(--fs-0); font-variant-numeric: tabular-nums; pointer-events: none; white-space: nowrap; }
+#marcador .fila { display: flex; gap: 3px; }
+#marcador i { width: 9px; height: 9px; display: block; }
+#marcador .mia { background: var(--hueso); }
+#marcador .suya { border: 1.4px solid var(--hueso); }
+#marcador .libre { border: 1.4px solid var(--tenue); }
+#marcador .urge { color: var(--hueso); letter-spacing: .08em; text-transform: uppercase; }
+#sat { display: flex; flex-wrap: wrap; gap: 0 12px; color: var(--tenue); font-size: var(--fs-0); font-variant-numeric: tabular-nums; max-width: min(60ch, 56vw); }
+#sat .activo { color: var(--hueso); }
+#registro { display: grid; gap: 1px; font-size: var(--fs-0); color: var(--gris); font-variant-numeric: tabular-nums; max-width: min(46ch, 46vw); }
+#registro .grave { color: var(--hueso); }
+#registro .ir { pointer-events: auto; cursor: pointer; }
+#registro .ir:hover { text-decoration: underline; }
+#registro div:nth-last-child(n+4) { opacity: .55; }
+#aviso { color: var(--hueso); font-size: var(--fs-0); letter-spacing: .12em; text-transform: uppercase; min-height: 1.5em; }
+
+#mando { position: fixed; display: grid; gap: 8px; justify-items: end;
+  right: calc(12px + env(safe-area-inset-right, 0px)); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+#clases { display: grid; gap: 0; background: rgba(0, 0, 0, .72); border-radius: 2px; }
+#misiones { display: grid; gap: 1px; width: min(290px, 70vw); max-height: min(36vh, 200px); overflow: hidden; background: var(--negro); font-size: var(--fs-0); font-variant-numeric: tabular-nums; }
+#misiones .m { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto 5ch; align-items: center; gap: 8px; padding: 1px 6px; color: var(--hueso); }
+#misiones .m i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+#misiones .m span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#misiones .m .e { color: var(--gris); }
+#misiones .m b { font-weight: 400; text-align: right; }
+#misiones .m.fin { opacity: .55; }
+#misiones .m.mas { display: block; color: var(--gris); }
+#seleccion { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 4px 8px; font-size: var(--fs-0); }
+#seleccion button { padding: 3px 8px; border: 1px solid var(--tenue); background: var(--negro); color: var(--hueso); }
+#clases button { display: grid; grid-template-columns: 10px 1fr 3ch 3ch; align-items: center; gap: 8px; min-width: 164px; padding: 3px 6px; color: var(--gris); font-variant-numeric: tabular-nums; text-align: left; }
+#clases button i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+#clases button small { grid-column: 2 / -1; font-size: var(--fs-0); color: var(--gris); }
+#clases button[aria-checked="true"] small { color: var(--negro); }
+#clases button b { font-weight: 400; text-align: right; color: var(--hueso); }
+#clases button kbd { font: inherit; color: var(--tenue); text-align: right; }
+#clases button:hover { color: var(--hueso); }
+#clases button[aria-checked="true"] { color: var(--negro); background: var(--c); }
+#clases button[aria-checked="true"] i { background: var(--negro); }
+#clases button[aria-checked="true"] b, #clases button[aria-checked="true"] kbd { color: var(--negro); }
+#clases button:disabled { opacity: .45; }
+#ctrl { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; max-width: 420px; }
+#ctrl button { padding: 3px 8px; border: 1px solid var(--linea); color: var(--gris); background: var(--negro); min-width: 3ch; }
+#ctrl button:hover { color: var(--hueso); border-color: var(--tenue); }
+#ctrl button[aria-pressed="true"] { color: var(--negro); background: var(--hueso); border-color: var(--hueso); }
+#ctrl #sonido[aria-pressed="true"] { color: var(--gris); background: var(--negro); border-color: var(--linea); }
+#ctrl #sonido[aria-pressed="false"] { color: var(--tenue); text-decoration: line-through; }
+
+.hoja { position: fixed; inset: 0; display: grid; place-items: center; padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px; pointer-events: none; }
+.hoja > div { pointer-events: auto; background: var(--panel); border: 1px solid var(--linea); border-radius: 2px; padding: 18px 20px; width: min(58ch, 100%); max-height: calc(100vh - 32px); overflow: auto; display: grid; gap: 12px; }
+.hoja h1 { margin: 0; font-size: var(--fs-3); font-weight: 600; letter-spacing: .01em; text-wrap: balance; }
+.hoja p { margin: 0; color: var(--gris); }
+.hoja ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 5px; color: var(--hueso); }
+.hoja kbd { font: inherit; color: var(--dron); }
+.reglas summary { cursor: pointer; color: var(--gris); }
+.reglas ul { margin-top: 8px; }
+.leyenda { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--gris); font-size: var(--fs-0); }
+.leyenda span { display: inline-flex; align-items: center; gap: 6px; }
+.leyenda i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.leyenda i.hueco { background: none; border: 1.2px solid var(--hueso); border-radius: 0; transform: rotate(45deg); }
+.leyenda i.gris { border-color: var(--contacto); display: grid; place-items: center; }
+.leyenda i.gris::after { content: ""; width: 2px; height: 2px; background: var(--contacto); }
+.mapa { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.mapa label { color: var(--gris); }
+.mapa select, .mapa textarea { font: inherit; color: var(--hueso); background: var(--negro); border: 1px solid var(--linea); border-radius: 2px; }
+.mapa select { padding: 3px 6px; }
+.mapa button, .mapa a { padding: 3px 8px; border: 1px solid var(--linea); color: var(--gris); text-decoration: none; border-radius: 2px; }
+.mapa button:hover, .mapa a:hover { color: var(--hueso); border-color: var(--tenue); }
+.pegado { flex-basis: 100%; display: grid; gap: 6px; justify-items: start; }
+.pegado textarea { width: 100%; min-height: 90px; padding: 6px; font-size: var(--fs-0); resize: vertical; }
+#msgMapa { flex-basis: 100%; min-height: 1.4em; color: var(--hueso); font-size: var(--fs-0); }
+.acciones { display: flex; gap: 8px; }
+.accion { padding: 6px 14px; color: var(--negro); background: var(--hueso); font-weight: 600; }
+.accion:hover { background: #fff; }
+.cifras { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-variant-numeric: tabular-nums; }
+.cifras div { display: grid; }
+.cifras small { color: var(--gris); font-size: var(--fs-0); }
+.cifras b { font-size: var(--fs-2); font-weight: 400; }
+
+#minimapa { position: fixed; display: grid; gap: 4px; width: min(204px, 36vw);
+  left: calc(12px + env(safe-area-inset-left, 0px)); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+#mini { display: block; width: 100%; aspect-ratio: 1664 / 1024; background: var(--negro); border: 1px solid var(--linea); border-radius: 2px; touch-action: none; cursor: pointer; }
+#vistas { display: flex; flex-wrap: wrap; gap: 4px; }
+#vistas button { padding: 3px 8px; border: 1px solid var(--linea); color: var(--gris); background: var(--negro); min-width: 3ch; }
+#vistas button:hover { color: var(--hueso); border-color: var(--tenue); }
+#vistas button[aria-pressed="true"] { color: var(--negro); background: var(--hueso); border-color: var(--hueso); }
+@media (pointer: coarse) {
+  #menu .op { padding-block: 8px; }
+  #menu .cant button { padding: 6px 10px; }
+  #clases button { padding-block: 8px; }
+  #ctrl button, #vistas button { padding: 8px 10px; }
+}
+@media (max-width: 520px) {
+  #clases button { min-width: 142px; gap: 6px; }
+  body:not(.con-seleccion) #clases button kbd { visibility: hidden; }
+  #ctrl { max-width: 190px; }
+  #estado { max-width: 60vw; }
+  #cabecera { top: calc(30px + env(safe-area-inset-top, 0px)); }
+  #marcador { left: calc(12px + env(safe-area-inset-left, 0px)); transform: none; }
+}
+</style>
+<style>body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+<canvas id="mapa" aria-label="Mapa del teatro de operaciones. Tu base está abajo a la izquierda; la enemiga, arriba a la derecha."></canvas>
+
+<header id="cabecera">
+  <button id="titulo" type="button" title="Recargar la página">doctrina</button>
+  <div id="estado"></div>
+  <div id="sat" aria-label="Satélites"></div>
+  <div id="aviso" role="status"></div>
+  <div id="registro" role="log" aria-live="polite" aria-label="Registro de mensajes"></div>
+</header>
+
+<div id="marcador" role="status" aria-label="Ciudades"></div>
+
+<div id="menu" role="menu" aria-label="Acciones en este lugar" hidden></div>
+
+<div id="minimapa">
+  <div id="vistas">
+    <button id="zMenos" type="button" title="Alejar (−)" aria-label="Alejar">−</button>
+    <button id="zMas" type="button" title="Acercar (+)" aria-label="Acercar">+</button>
+    <button id="irBase" type="button" title="Volver a tu base (B)">base</button>
+    <button id="caja" type="button" aria-pressed="false" title="Seleccionar con un recuadro (C o Shift+arrastrar)">recuadro</button>
+  </div>
+  <canvas id="mini" aria-label="Minimapa. Haz clic para ir a ese punto."></canvas>
+</div>
+
+<nav id="mando" aria-label="Mando">
+  <div id="misiones" aria-label="Misiones en curso" hidden></div>
+  <div id="seleccion" hidden>
+    <span id="selN"></span>
+    <button id="volver" type="button" title="El aire seleccionado vuelve a la base (R)">volver</button>
+    <button id="soltarSel" type="button" title="Soltar la selección (Esc)">soltar</button>
+  </div>
+  <div id="clases" role="radiogroup" aria-label="Clase a lanzar"></div>
+  <div id="ctrl">
+    <button id="pausa" type="button">pausa</button>
+    <button id="vel" type="button" title="Velocidad (V)">×1</button>
+    <button id="modo" type="button" aria-pressed="false" title="Las tropas avanzan solas (A)">auto</button>
+    <button id="todas" type="button" title="Selecciona todas las desplegadas de la clase elegida (T)">todas</button>
+    <button id="sonido" type="button" aria-pressed="true" title="Sonido (M)">sonido</button>
+    <button id="ayuda" type="button" title="Cómo se juega (H)">?</button>
+    <button id="reiniciar" type="button">reiniciar</button>
+  </div>
+</nav>
+
+<section id="parte" class="hoja">
+  <div>
+    <h1>doctrina</h1>
+    <p>Dos arsenales enfrentados. El tuyo está abajo a la izquierda. El enemigo ve lo mismo que tú: solo lo que alcanzan sus sensores.</p>
+    <ul>
+      <li><b>Objetivo:</b> mantén dos tercios de las ciudades (los cuadrados) durante 120 segundos, o toma la base enemiga con personal. Si a los 45 minutos nadie lo logró, gana quien tenga más ciudades.</li>
+      <li><b>Para empezar:</b> pulsa Empezar, ve hasta una ciudad enemiga y haz clic en ella. Se abre un menú: elige Tomar y quién va.</li>
+      <li>El menú ofrece solo lo posible en ese lugar, con cuántas unidades hay y cuánto tardan. Lo gris aparece apagado con el motivo.</li>
+      <li><kbd>Arrastra</kbd> para moverte por el mapa; la rueda acerca y aleja. El minimapa te lleva a cualquier punto.</li>
+      <li><kbd>Shift+arrastra</kbd> selecciona lo desplegado; con selección, el clic les da la misión. <kbd>V</kbd> acelera.</li>
+    </ul>
+    <details class="reglas">
+      <summary>Todas las reglas</summary>
+      <ul>
+        <li><kbd>1–7</kbd> o un sector de tu base filtran el menú por clase. En el menú, flechas y Enter; la última opción usada ya viene marcada. <kbd>T</kbd> todas · <kbd>R</kbd> volver · <kbd>Esc</kbd> soltar · <kbd>Shift+8, 9, 0</kbd> guarda un grupo.</li>
+        <li>Flechas: mover la vista · <kbd>+</kbd> <kbd>−</kbd> zoom · <kbd>B</kbd> tu base · <kbd>F</kbd> última alerta · <kbd>C</kbd> recuadro. Con dos dedos también se mueve y se hace zoom. Las flechas del borde apuntan a lo que pasa fuera de la vista: haz clic en ellas para ir.</li>
+        <li>Patrullar espera en una zona. Atacar es preciso. Bombardear cubre más, falla más y ablanda ciudades. Apoyo aéreo sigue a tus tropas. Escoltar protege a otro avión. Defender no convierte terreno, pero recibe menos daño.</li>
+        <li>Avión y dron espía no combaten: identifican de lejos y dejan fotos. El dron espía no aparece en radar.</li>
+        <li>Alistar: personal 10 s, dron 25 s, vehículo 45 s, avión y misil 60 s. El aire con anillo ya está listo y sale al instante. Las órdenes aparecen abajo a la derecha con su contador.</li>
+        <li>Solo el personal convierte terreno. Las ciudades cuestan mucho más y se defienden: lleva tropas de sobra. Terreno y ciudades producen tropas. El aire no se repone.</li>
+        <li>El agua solo se cruza por puentes, que se pueden bombardear y tardan 3 minutos en repararse. Caminos aceleran; bosque y montaña frenan.</li>
+        <li>El bosque esconde tropas y la montaña tapa el radar. Frontera y ciudades vigilan.</li>
+        <li>Un contacto gris está detectado, sin identificar. Fuera de territorio enemigo, lo gris no se puede bombardear.</li>
+        <li>Cuatro satélites no se pueden derribar. El óptico identifica bajo su franja, el radar revela tropas incluso en el bosque, la escucha revela el aire y la alerta temprana avisa cada misil lanzado. Lo que muestran se apaga con el tiempo.</li>
+        <li>La base también se toma: personal dentro de ella durante 45 segundos.</li>
+      </ul>
+    </details>
+    <div class="leyenda">
+      <span><i style="--c:var(--avion)"></i>avión</span>
+      <span><i style="--c:var(--dron)"></i>dron</span>
+      <span><i style="--c:var(--misil)"></i>misil</span>
+      <span><i style="--c:var(--personal)"></i>personal</span>
+      <span><i style="--c:var(--vehiculo)"></i>vehículo</span>
+      <span><i style="--c:var(--espia)"></i>espionaje</span>
+      <span><i style="--c:var(--hueso)"></i>tuyo</span>
+      <span><i class="hueco"></i>enemigo</span>
+      <span><i class="hueco gris"></i>sin identificar</span>
+    </div>
+    <div id="bloqueMapa" class="mapa">
+      <label for="mapaSel">mapa</label>
+      <select id="mapaSel"><option value="ejemplo">Dos riberas</option></select>
+      <button id="pegarMapa" type="button">pegar mapa</button>
+      <a id="irAtlas" href="doctrina-atlas.html" hidden>dibujar un mapa</a>
+      <div id="pegado" class="pegado" hidden>
+        <textarea id="jsonMapa" spellcheck="false" aria-label="Mapa en formato JSON, copiado desde el atlas" placeholder="Pega aquí el texto de «guardar / cargar» del atlas"></textarea>
+        <button id="usarPegado" type="button">usar este mapa</button>
+      </div>
+      <div id="msgMapa" role="status"></div>
+    </div>
+    <div class="acciones"><button id="empezar" class="accion" type="button">Empezar</button></div>
+  </div>
+</section>
+
+<section id="final" class="hoja" hidden>
+  <div>
+    <h1 id="finTitulo"></h1>
+    <p id="finTexto"></p>
+    <div class="cifras">
+      <div><small>duración</small><b id="finT"></b></div>
+      <div><small>terreno tuyo</small><b id="finA"></b></div>
+      <div><small>terreno enemigo</small><b id="finB"></b></div>
+      <div><small>tus bajas</small><b id="finBA"></b></div>
+      <div><small>bajas enemigas</small><b id="finBB"></b></div>
+      <div><small>doctrina enemiga</small><b id="finP"></b></div>
+    </div>
+    <div class="acciones"><button id="otra" class="accion" type="button">Otra partida</button></div>
+  </div>
+</section>
+
+<script>
+/* atlas · núcleo del mapa: formato, trazos, conversión a celdas, frontera y validación. Sin DOM. */
+const ATLAS = (() => {
+  'use strict';
+  const COLS = 104, ROWS = 64, CELDA = 16, W = COLS * CELDA, H = ROWS * CELDA, N = COLS * ROWS;
+  const LLANURA = 0, AGUA = 1, BOSQUE = 2, MONTANA = 3, CIUDAD = 4;
+  const LETRAS = 'labmc', TIPOS = ['rio', 'camino', 'frontera'];
+  const R_ZONA = 190, MARGEN = 28;
+  const BASES = [{ x: MARGEN, y: H - MARGEN }, { x: W - MARGEN, y: MARGEN }];
+  const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+  const idx = (i, j) => i + j * COLS;
+  const celdaDe = (x, y) => [clamp(Math.floor(x / CELDA), 0, COLS - 1), clamp(Math.floor(y / CELDA), 0, ROWS - 1)];
+
+  function crearVacio() {
+    return { nombre: 'sin título', areas: new Uint8Array(N), lineas: [], simetria: true, sigG: 1 };
+  }
+
+  // Pincel: pinta siempre la celda bajo el cursor y las que caen dentro del radio.
+  function pintar(m, x, y, radio, tipo) {
+    const poner = k => { m.areas[k] = tipo; if (m.simetria) m.areas[N - 1 - k] = tipo; };
+    const [ci, cj] = celdaDe(x, y);
+    poner(idx(ci, cj));
+    const r = Math.ceil(radio / CELDA);
+    for (let j = Math.max(0, cj - r); j <= Math.min(ROWS - 1, cj + r); j++) {
+      for (let i = Math.max(0, ci - r); i <= Math.min(COLS - 1, ci + r); i++) {
+        if (Math.hypot((i + .5) * CELDA - x, (j + .5) * CELDA - y) <= radio) poner(idx(i, j));
+      }
+    }
+  }
+
+  // Limpieza del trazo a mano: quita temblor, redondea y lleva los extremos al borde o al centro.
+  function simplificar(p, tol) {
+    const n = p.length / 2;
+    if (n < 3) return p.slice();
+    const marca = new Uint8Array(n); marca[0] = marca[n - 1] = 1;
+    const pila = [[0, n - 1]];
+    while (pila.length) {
+      const [a, b] = pila.pop();
+      let mx = -1, md = tol;
+      for (let k = a + 1; k < b; k++) {
+        const d = distSeg(p[k * 2], p[k * 2 + 1], p[a * 2], p[a * 2 + 1], p[b * 2], p[b * 2 + 1]);
+        if (d > md) { md = d; mx = k; }
+      }
+      if (mx >= 0) { marca[mx] = 1; pila.push([a, mx], [mx, b]); }
+    }
+    const q = [];
+    for (let k = 0; k < n; k++) if (marca[k]) q.push(p[k * 2], p[k * 2 + 1]);
+    return q;
+  }
+  function suavizar(p, pasadas = 1) {
+    let q = p;
+    for (let v = 0; v < pasadas; v++) {
+      if (q.length < 6) return q.slice();
+      const r = [q[0], q[1]];
+      for (let k = 0; k + 3 < q.length; k += 2) {
+        const [x0, y0, x1, y1] = [q[k], q[k + 1], q[k + 2], q[k + 3]];
+        r.push(x0 * .75 + x1 * .25, y0 * .75 + y1 * .25, x0 * .25 + x1 * .75, y0 * .25 + y1 * .75);
+      }
+      r.push(q[q.length - 2], q[q.length - 1]);
+      q = r;
+    }
+    return q;
+  }
+  function limpiarTrazo(p, simetria) {
+    const q = suavizar(simplificar(p, 2.2), 1);
+    const ajustar = k => {
+      if (simetria && Math.hypot(q[k] - W / 2, q[k + 1] - H / 2) <= CELDA * 1.5) { q[k] = W / 2; q[k + 1] = H / 2; return; }
+      if (q[k] <= CELDA * 1.5) q[k] = 0; else if (q[k] >= W - CELDA * 1.5) q[k] = W;
+      if (q[k + 1] <= CELDA * 1.5) q[k + 1] = 0; else if (q[k + 1] >= H - CELDA * 1.5) q[k + 1] = H;
+    };
+    ajustar(0); ajustar(q.length - 2);
+    return q;
+  }
+  const espejoP = p => p.map((v, k) => (k % 2 === 0 ? W - v : H - v));
+  function agregarLinea(m, t, p) {
+    const g = m.sigG++;
+    m.lineas.push({ t, p, g });
+    if (m.simetria) m.lineas.push({ t, p: espejoP(p), g });
+    return g;
+  }
+  function distSeg(x, y, x0, y0, x1, y1) {
+    const dx = x1 - x0, dy = y1 - y0, l = dx * dx + dy * dy;
+    const t = l ? clamp(((x - x0) * dx + (y - y0) * dy) / l, 0, 1) : 0;
+    return Math.hypot(x - (x0 + t * dx), y - (y0 + t * dy));
+  }
+  function quitarLineaCerca(m, x, y, tol) {
+    let mejor = null, md = tol;
+    for (const l of m.lineas) {
+      for (let k = 0; k + 3 < l.p.length; k += 2) {
+        const d = distSeg(x, y, l.p[k], l.p[k + 1], l.p[k + 2], l.p[k + 3]);
+        if (d < md) { md = d; mejor = l; }
+      }
+    }
+    if (!mejor) return false;
+    m.lineas = m.lineas.filter(l => l.g !== mejor.g);
+    return true;
+  }
+
+  // Recorrido 4-conexo: un trazo convertido a celdas nunca deja huecos en diagonal.
+  function celdasDeSegmento(x0, y0, x1, y1, emitir) {
+    x0 = clamp(x0, 0, W - 1e-6); x1 = clamp(x1, 0, W - 1e-6);
+    y0 = clamp(y0, 0, H - 1e-6); y1 = clamp(y1, 0, H - 1e-6);
+    let cx = Math.floor(x0 / CELDA), cy = Math.floor(y0 / CELDA);
+    const ex = Math.floor(x1 / CELDA), ey = Math.floor(y1 / CELDA);
+    const dx = x1 - x0, dy = y1 - y0, sx = dx > 0 ? 1 : -1, sy = dy > 0 ? 1 : -1;
+    let tx = dx !== 0 ? ((sx > 0 ? (cx + 1) * CELDA : cx * CELDA) - x0) / dx : Infinity;
+    let ty = dy !== 0 ? ((sy > 0 ? (cy + 1) * CELDA : cy * CELDA) - y0) / dy : Infinity;
+    const dtx = dx !== 0 ? CELDA / Math.abs(dx) : Infinity, dty = dy !== 0 ? CELDA / Math.abs(dy) : Infinity;
+    emitir(cx, cy);
+    let tope = COLS + ROWS + 4;
+    while ((cx !== ex || cy !== ey) && tope-- > 0) {
+      if (tx < ty) { tx += dtx; cx += sx; } else { ty += dty; cy += sy; }
+      emitir(clamp(cx, 0, COLS - 1), clamp(cy, 0, ROWS - 1));
+    }
+  }
+  function rasterizar(m, t, sal) {
+    for (const l of m.lineas) {
+      if (l.t !== t) continue;
+      for (let k = 0; k + 3 < l.p.length; k += 2) {
+        celdasDeSegmento(l.p[k], l.p[k + 1], l.p[k + 2], l.p[k + 3], (i, j) => { sal[idx(i, j)] = 1; });
+      }
+    }
+  }
+
+  const V8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+  function ruta(bloqueo, a, b) {
+    if (bloqueo[a] || bloqueo[b]) return false;
+    const vis = new Uint8Array(N), cola = [a];
+    vis[a] = 1;
+    for (let h = 0; h < cola.length; h++) {
+      const k = cola[h];
+      if (k === b) return true;
+      const i = k % COLS, j = (k - i) / COLS;
+      for (const [dx, dy] of V8) {
+        const x = i + dx, y = j + dy;
+        if (x < 0 || y < 0 || x >= COLS || y >= ROWS) continue;
+        const q = idx(x, y);
+        if (vis[q] || bloqueo[q]) continue;
+        // Sin atajos por las esquinas de lo que bloquea.
+        if (dx && dy && (bloqueo[idx(i + dx, j)] || bloqueo[idx(i, j + dy)])) continue;
+        vis[q] = 1; cola.push(q);
+      }
+    }
+    return false;
+  }
+
+  function derivar(m) {
+    const rio = new Uint8Array(N), camino = new Uint8Array(N), fro = new Uint8Array(N);
+    rasterizar(m, 'rio', rio); rasterizar(m, 'camino', camino); rasterizar(m, 'frontera', fro);
+    // Dos trazos en espejo no caen en celdas exactamente opuestas: se unen para que el mapa sea justo.
+    if (m.simetria) for (const c of [rio, camino, fro]) for (let k = 0; k < N; k++) if (c[k]) c[N - 1 - k] = 1;
+    const puente = new Uint8Array(N), bloqueo = new Uint8Array(N);
+    const cuenta = [0, 0, 0, 0, 0];
+    for (let k = 0; k < N; k++) {
+      cuenta[m.areas[k]]++;
+      const agua = m.areas[k] === AGUA || rio[k];
+      puente[k] = agua && camino[k] ? 1 : 0;
+      bloqueo[k] = agua && !puente[k] ? 1 : 0;
+    }
+    const [ax, ay] = celdaDe(BASES[0].x, BASES[0].y), [bx, by] = celdaDe(BASES[1].x, BASES[1].y);
+    const A = idx(ax, ay), B = idx(bx, by);
+
+    // Lados: la frontera es una barrera 4-conexa, así que un relleno 8-conexo no la atraviesa.
+    const lado = new Int8Array(N), hayFrontera = m.lineas.some(l => l.t === 'frontera');
+    let separa = false;
+    if (hayFrontera && !fro[A] && !fro[B]) {
+      const cola = [A]; lado[A] = 1;
+      for (let h = 0; h < cola.length; h++) {
+        const k = cola[h], i = k % COLS, j = (k - i) / COLS;
+        for (const [dx, dy] of V8) {
+          const x = i + dx, y = j + dy;
+          if (x < 0 || y < 0 || x >= COLS || y >= ROWS) continue;
+          const q = idx(x, y);
+          if (!lado[q] && !fro[q]) { lado[q] = 1; cola.push(q); }
+        }
+      }
+      separa = lado[B] === 0;
+    }
+    for (let k = 0; k < N; k++) {
+      const i = k % COLS, j = (k - i) / COLS;
+      const dA = Math.hypot((i + .5) * CELDA - BASES[0].x, (j + .5) * CELDA - BASES[0].y);
+      const dB = Math.hypot((i + .5) * CELDA - BASES[1].x, (j + .5) * CELDA - BASES[1].y);
+      const cerca = dA < dB ? 1 : dA > dB ? -1 : (k < N / 2 ? 1 : -1);
+      if (!separa) lado[k] = cerca;
+      else if (fro[k]) lado[k] = cerca;
+      else if (!lado[k]) lado[k] = -1;
+    }
+
+    let puentes = 0;
+    const vistoP = new Uint8Array(N), centrosPuente = [];
+    for (let k = 0; k < N; k++) {
+      if (!puente[k] || vistoP[k]) continue;
+      puentes++;
+      const cola = [k]; vistoP[k] = 1;
+      let sx = 0, sy = 0;
+      for (let h = 0; h < cola.length; h++) {
+        const c = cola[h], i = c % COLS, j = (c - i) / COLS;
+        sx += (i + .5) * CELDA; sy += (j + .5) * CELDA;
+        for (const [dx, dy] of V8) {
+          const x = i + dx, y = j + dy;
+          if (x < 0 || y < 0 || x >= COLS || y >= ROWS) continue;
+          const q = idx(x, y);
+          if (puente[q] && !vistoP[q]) { vistoP[q] = 1; cola.push(q); }
+        }
+      }
+      centrosPuente.push({ x: sx / cola.length, y: sy / cola.length });
+    }
+    const hayRuta = ruta(bloqueo, A, B);
+    const avisos = [];
+    if (!hayFrontera) avisos.push('falta dibujar la frontera');
+    else if (!separa) avisos.push('la frontera no separa las bases');
+    if (!hayRuta) avisos.push('no hay ruta terrestre entre las bases');
+    if (bloqueo[A] || bloqueo[B]) avisos.push('una base está sobre agua');
+    return { rio, camino, fro, puente, bloqueo, lado, separa, hayRuta, puentes, centrosPuente, cuenta, avisos };
+  }
+
+  // Costas: contorno del agua, encadenado y redondeado para que no se lea la retícula.
+  function costas(m) {
+    const seg = [], clave = (x, y) => x + y * (COLS + 1), desde = new Map(), entrantes = new Map();
+    const esAgua = (i, j) => m.areas[idx(i, j)] === AGUA;
+    const poner = (x0, y0, x1, y1) => {
+      const s = { x0, y0, x1, y1, usado: false };
+      seg.push(s);
+      const a = clave(x0, y0), b = clave(x1, y1);
+      if (!desde.has(a)) desde.set(a, []);
+      desde.get(a).push(s);
+      entrantes.set(b, (entrantes.get(b) || 0) + 1);
+    };
+    for (let j = 0; j < ROWS; j++) for (let i = 0; i < COLS; i++) {
+      if (!esAgua(i, j)) continue;
+      if (j > 0 && !esAgua(i, j - 1)) poner(i, j, i + 1, j);
+      if (i < COLS - 1 && !esAgua(i + 1, j)) poner(i + 1, j, i + 1, j + 1);
+      if (j < ROWS - 1 && !esAgua(i, j + 1)) poner(i + 1, j + 1, i, j + 1);
+      if (i > 0 && !esAgua(i - 1, j)) poner(i, j + 1, i, j);
+    }
+    const caminos = [];
+    const recorrer = ini => {
+      const p = [ini.x0 * CELDA, ini.y0 * CELDA];
+      let s = ini;
+      while (s && !s.usado) {
+        s.usado = true;
+        p.push(s.x1 * CELDA, s.y1 * CELDA);
+        s = (desde.get(clave(s.x1, s.y1)) || []).find(o => !o.usado);
+      }
+      caminos.push(suavizar(p, 3));
+    };
+    for (const s of seg) if (!s.usado && !entrantes.has(clave(s.x0, s.y0))) recorrer(s);
+    for (const s of seg) if (!s.usado) recorrer(s);
+    return caminos;
+  }
+
+  // Muestreo por ritmo: cada patrón es una lista de posiciones y radios dentro de un ciclo.
+  function muestrear(p, ciclo, marcas, emitir) {
+    let acum = 0, k = 0, n = 0;
+    if (p.length < 4) return;
+    let lseg = Math.hypot(p[2] - p[0], p[3] - p[1]);
+    for (let c = 0; c < 20000; c++) {
+      for (const [d, r] of marcas) {
+        const s = c * ciclo + d;
+        while (s > acum + lseg) {
+          acum += lseg; k += 2;
+          if (k + 3 >= p.length) return;
+          lseg = Math.hypot(p[k + 2] - p[k], p[k + 3] - p[k + 1]);
+        }
+        const t = lseg ? (s - acum) / lseg : 0;
+        emitir(p[k] + (p[k + 2] - p[k]) * t, p[k + 1] + (p[k + 3] - p[k + 1]) * t, r, n++);
+      }
+    }
+  }
+
+  // Formato de archivo
+  function aRLE(a) {
+    let s = '', k = 0;
+    while (k < a.length) {
+      let f = k;
+      while (f < a.length && a[f] === a[k]) f++;
+      s += LETRAS[a[k]] + (f - k);
+      k = f;
+    }
+    return s;
+  }
+  function deRLE(s, total = N) {
+    const a = new Uint8Array(total);
+    const re = /([labmc])(\d+)/g;
+    let k = 0, m, fin = 0;
+    while ((m = re.exec(s))) {
+      if (m.index !== fin) throw new Error('El dibujo de áreas está dañado.');
+      fin = re.lastIndex;
+      const n = +m[2];
+      if (k + n > total) throw new Error('El dibujo de áreas tiene más celdas que el mapa.');
+      a.fill(LETRAS.indexOf(m[1]), k, k + n);
+      k += n;
+    }
+    if (fin !== s.length || k !== total) throw new Error('El dibujo de áreas no cubre el mapa completo.');
+    return a;
+  }
+  function aJSON(m) {
+    return JSON.stringify({ formato: 'doctrina-mapa', v: 2, nombre: m.nombre, cols: COLS, rows: ROWS, celda: CELDA, simetria: m.simetria, areas: aRLE(m.areas),
+      lineas: m.lineas.map(l => ({ t: l.t, g: l.g, p: l.p.map(v => Math.round(v * 10) / 10) })) });
+  }
+  function deJSON(txt) {
+    let o;
+    try { o = JSON.parse(txt); } catch (_) { throw new Error('El texto no es JSON válido.'); }
+    if (!o || o.formato !== 'doctrina-mapa') throw new Error('Este JSON no es un mapa de doctrina.');
+    if (o.v !== 1 && o.v !== 2) throw new Error(`Versión de mapa no admitida: ${o.v}.`);
+    // La versión 1 medía 52×32: se convierte duplicando cada celda y cada coordenada.
+    const antiguo = o.v === 1, escala = antiguo ? 2 : 1, colsO = COLS / escala, rowsO = ROWS / escala;
+    if (o.cols !== colsO || o.rows !== rowsO || o.celda !== CELDA) throw new Error(`El mapa debe medir ${colsO}×${rowsO} celdas de ${CELDA}.`);
+    if (typeof o.areas !== 'string') throw new Error('Falta el dibujo de áreas.');
+    if (!Array.isArray(o.lineas) || o.lineas.length > 600) throw new Error('La lista de líneas no es válida.');
+    const m = crearVacio();
+    m.nombre = typeof o.nombre === 'string' ? o.nombre.slice(0, 80) : 'sin título';
+    m.simetria = !!o.simetria;
+    if (antiguo) {
+      const v = deRLE(o.areas, colsO * rowsO);
+      for (let j = 0; j < ROWS; j++) for (let i = 0; i < COLS; i++) m.areas[idx(i, j)] = v[(i >> 1) + (j >> 1) * colsO];
+    } else m.areas = deRLE(o.areas);
+    let g = 1;
+    for (const l of o.lineas) {
+      if (!l || !TIPOS.includes(l.t) || !Array.isArray(l.p) || l.p.length < 4 || l.p.length % 2 || l.p.length > 8000 || !l.p.every(Number.isFinite)) throw new Error('Una línea del mapa no es válida.');
+      const gr = Number.isInteger(l.g) ? l.g : g;
+      m.lineas.push({ t: l.t, g: gr, p: l.p.map((v, k) => clamp(v * escala, 0, k % 2 ? H : W)) });
+      g = Math.max(g, gr + 1);
+    }
+    m.sigG = g;
+    return m;
+  }
+
+  // Mapa de ejemplo, trazado sobre una mitad y reflejado
+  function ejemplo() {
+    const m = crearVacio();
+    m.nombre = 'Dos riberas';
+    const ruido = (x, y) => Math.sin(x * .0155 + 1.3) * Math.cos(y * .0135 + .7) + .5 * Math.sin(x * .035 + y * .025);
+    const poner = (k, t) => { m.areas[k] = t; m.areas[N - 1 - k] = t; };
+    const cada = f => { for (let j = 0; j < ROWS; j++) for (let i = 0; i < COLS; i++) f((i + .5) * CELDA, (j + .5) * CELDA, idx(i, j)); };
+    const lineaP = [440, 116, 524, 236, 600, 340, 704, 428];
+    const dLinea = (x, y) => { let d = 1e9; for (let k = 0; k + 3 < lineaP.length; k += 2) d = Math.min(d, distSeg(x, y, lineaP[k], lineaP[k + 1], lineaP[k + 2], lineaP[k + 3])); return d; };
+    cada((x, y, k) => {
+      if (Math.hypot(x, y) + ruido(x, y) * 52 < 352) poner(k, AGUA);
+    });
+    cada((x, y, k) => {
+      const d = dLinea(x, y);
+      if (d + ruido(x * 2, y * 2) * 24 < 60 && Math.hypot(x - 524, y - 236) > 32) poner(k, MONTANA);
+    });
+    for (const [cx, cy, r] of [[636, 704, 112], [464, 492, 68], [168, 536, 80], [860, 828, 104], [1032, 904, 68], [330, 880, 56], [1210, 930, 60]]) {
+      cada((x, y, k) => { if (m.areas[k] === LLANURA && Math.hypot(x - cx, y - cy) + ruido(x * 3, y * 3) * 18 < r) poner(k, BOSQUE); });
+    }
+    // Seis ciudades por lado. Conservan su radio: conquistar una cuesta lo mismo que antes.
+    for (const [cx, cy, r] of [[412, 704, 18], [712, 592, 16], [940, 764, 20], [252, 660, 12], [600, 930, 14], [530, 490, 14]]) {
+      cada((x, y, k) => { if (m.areas[k] !== AGUA && Math.hypot(x - cx, y - cy) < r) poner(k, CIUDAD); });
+    }
+    const curva = p => suavizar(p, 2);
+    agregarLinea(m, 'frontera', curva([336, 0, 428, 96, 400, 220, 536, 300, 612, 412, 748, 452, 832, 512]));
+    agregarLinea(m, 'rio', curva([192, 192, 336, 376, 376, 564, 524, 724, 560, 884, 644, 1024]));
+    agregarLinea(m, 'rio', curva([600, 352, 520, 428, 428, 480, 372, 524]));
+    agregarLinea(m, 'camino', curva([120, 904, 260, 804, 412, 696, 576, 652, 708, 596, 832, 512]));
+    agregarLinea(m, 'camino', curva([80, 964, 320, 940, 600, 930, 800, 884, 940, 768, 1120, 784, 1212, 816, 1304, 724]));
+    agregarLinea(m, 'camino', curva([260, 804, 252, 660, 300, 524, 428, 428, 524, 236, 428, 144]));
+    agregarLinea(m, 'camino', curva([428, 428, 530, 490, 576, 652]));
+    return m;
+  }
+
+  return { COLS, ROWS, CELDA, W, H, N, LLANURA, AGUA, BOSQUE, MONTANA, CIUDAD, TIPOS, BASES, R_ZONA,
+    crearVacio, pintar, limpiarTrazo, agregarLinea, quitarLineaCerca, celdasDeSegmento, derivar, ruta, costas, muestrear, aJSON, deJSON, ejemplo, idx };
+})();
+if (typeof module !== 'undefined') module.exports = ATLAS;
+
+/* doctrina · núcleo puro: DATOS, SIM, TERRENO, IA. Sin DOM. */
+const DOCTRINA = (() => {
+  'use strict';
+  const A = typeof ATLAS !== 'undefined' ? ATLAS : require('./atlas/mapa.js');
+
+  const DT = 1 / 30;
+  const AVION = 0, DRON = 1, MISIL = 2, PERSONAL = 3, VEHICULO = 4, ESPIA_A = 5, ESPIA_D = 6;
+  const esSuelo = c => c === PERSONAL || c === VEHICULO;
+  const ATQ = 0, INT = 1, TIERRA = 2, ESP = 3, APOYO = 4;
+  const MISIONES = { patrullar: INT, interceptar: INT, escolta: INT, atacar: ATQ, bombardear: ATQ, apoyo: APOYO, reconocer: ESP, tomar: TIERRA, defender: TIERRA };
+  const IDA = 0, PATRULLA = 1, REGRESO = 2, MOVIL = 3, QUIETO = 4;
+  const NOMBRES = ['avión', 'dron', 'misil', 'personal', 'vehículo', 'avión espía', 'dron espía'];
+  function admite(c, mis) {
+    if (mis === 'tomar' || mis === 'defender') return esSuelo(c);
+    if (mis === 'patrullar') return c === AVION || c === DRON;
+    if (mis === 'atacar' || mis === 'interceptar') return c <= MISIL;
+    if (mis === 'bombardear' || mis === 'escolta') return c === AVION;
+    if (mis === 'apoyo') return c === AVION || c === DRON;
+    if (mis === 'reconocer') return c === ESPIA_A || c === ESPIA_D;
+    return false;
+  }
+
+  const DATOS = {
+    margen: 28, celda: A.CELDA, maxTierra: 220, maxCola: 12,
+    // Distancia en la que se miden los tiempos de «cruce»: las velocidades no dependen del tamaño del mapa.
+    dRef: 900,
+    // Hasta qué distancia las tropas automáticas marchan hacia una ciudad ajena.
+    rUrbe: 520,
+    base: { rIni: 36, rFin: 172, rZona: 192, rTerreno: 250, rVision: 340, rIdent: 130 },
+    // Proporciones: cruce del mapa y alistamiento en segundos a ×1. Con el soldado como unidad, el avión va 24 veces más rápido.
+    clases: [
+      { cap: 16, ini: 16, cruce: 30, alistar: 60, lineas: 4, vis: 100, idr: 85, rearme: 30,
+        atq: { r: 20, k: 5 }, int: { rango: 70, tiros: 4, cd: 2, aguante: 140, orbita: 28 } },
+      { cap: 40, ini: 40, cruce: 90, alistar: 25, lineas: 6, vis: 175, idr: 150, rearme: 20,
+        atq: { r: 11, k: 2 }, int: { rango: 48, tiros: 2, cd: 4, aguante: 420, orbita: 14 } },
+      { cap: 20, ini: 20, cruce: 20, alistar: 60, lineas: 4, vis: 40, idr: 30, rearme: 0,
+        atq: { r: 26, k: 7 }, int: { rango: 60, tiros: 1, cd: 0, aguante: 6, orbita: 0 } },
+      { cap: 90, ini: 40, cruce: 720, alistar: 10, lineas: 12, inf: 24, vis: 62, idr: 40, rearme: 0, tierra: { rango: 15, cd: 2.5, hp: 1 } },
+      { cap: 22, ini: 8, cruce: 180, alistar: 45, lineas: 4, inf: 40, vis: 85, idr: 55, rearme: 0, tierra: { rango: 26, cd: 2.5, hp: 3 } },
+      { cap: 4, ini: 4, cruce: 45, alistar: 45, lineas: 2, inf: 0, vis: 220, idr: 190, rearme: 30, esp: { aguante: 120, orbita: 34 } },
+      { cap: 8, ini: 8, cruce: 130, alistar: 20, lineas: 4, inf: 0, vis: 150, idr: 130, rearme: 20, esp: { aguante: 400, orbita: 18 } },
+    ],
+    // Misiones aéreas: cada una cambia algo real.
+    bombardeo: { r: 44, k: 12, pk: 0.6, ablanda: 0.15 },
+    apoyo: { rango: 95, cd: 6, orbita: 30, golpe: { r: 13, k: 2 }, por: { 0: { tiros: 6, aguante: 120 }, 1: { tiros: 3, aguante: 300 } } },
+    defensa: { recibe: 0.7 },
+    sigilo: { rDeteccion: 70 },
+    // Velocidad relativa por terreno [llanura, agua, bosque, montaña, ciudad]: personal y vehículo.
+    relieve: { vel: [[1, 0, 0.7, 0.45, 1], [1, 0, 0.45, 0.25, 0.9]], camino: [1.5, 1.6] },
+    puente: { pk: 0.35, reparacion: 180 },
+    bosque: { rDeteccion: 48 },
+    vigilancia: { frontera: 3, ciudad: 4 },
+    industria: { ciudad: 5 },
+    // Salidas terrestres de la base: ángulos en grados y distancia al centro.
+    salidas: { angulos: [10, 28, 45, 62, 80], r: 214, opciones: 3 },
+    // Satélites: no se pueden derribar y sus pasadas no se controlan. Tiempos en segundos a ×1.
+    satelites: [
+      { id: 'optico', nombre: 'óptico', periodo: 240, transito: 40, ancho: 140, dir: [0.94, 0.34], fase: 30, vida: 90 },
+      { id: 'radar', nombre: 'radar', periodo: 360, transito: 60, ancho: 380, dir: [0.5, 0.87], fase: 120, vida: 75 },
+      { id: 'escucha', nombre: 'escucha', periodo: 180, transito: 50, ancho: 260, dir: [-0.71, 0.71], fase: 0, vida: 45 },
+    ],
+    alerta: { vida: 25 },
+    // Aire en alerta: unas pocas unidades ya preparadas, que salen en segundos. Se reponen solas.
+    listas: { tope: [2, 3, 2, 0, 0, 0, 0], salida: 3 },
+    // Al acabarse el tiempo gana quien tenga más ciudades; en empate, más terreno.
+    limite: 45,
+    // Ciudades: ganas con esta fracción, sostenida estos segundos. Convertir sus celdas cuesta más.
+    conquista: { fraccion: 2 / 3, segundos: 120, minimo: 3, rGuarnicion: 36, tiros: 3, pk: 0.22 },
+    // Probabilidad de derribo: interceptor (fila) contra blanco aéreo (columna).
+    pkAire: [
+      [0.55, 0.85, 0.25, 0.50, 0.70],
+      [0.25, 0.45, 0.05, 0.20, 0.35],
+      [0.75, 0.90, 0.60, 0.70, 0.85],
+    ],
+    // Probabilidad de impacto en tierra: personal/vehículo contra personal/vehículo.
+    pkTierra: [
+      [0.22, 0.06],
+      [0.50, 0.22],
+    ],
+    pkRefugio: 0.60, pkAbierto: 0.90, pkAireEnTierra: 0.40,
+    suministro: { propio: 1, neutral: 0.85, enemigo: 0.55 },
+    prod: [
+      { base: 0.10, raiz: 0.0025 },
+      { base: 0.015, raiz: 0.0006 },
+    ],
+    terreno: { tasa: 0.05, ciudad: 0.22, umbral: 0.34, topePorCelda: 4 },
+    ocupacion: { minPersonal: 6, segundos: 45 },
+    fortin: { alcance: 26, pk: 1.6, cadencia: 60 },
+    radioApoyo: 30,
+  };
+
+  // Datos derivados
+  function azar(st) {
+    let t = st.sem = (st.sem + 0x6D2B79F5) | 0;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  }
+  function mulberry(seed) {
+    const o = { sem: seed | 0 };
+    return () => azar(o);
+  }
+  const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+
+  // Ranuras de la base
+  function construirBase(side, bx, by) {
+    const cs = DATOS.clases;
+    const total = cs.reduce((a, c) => a + c.cap, 0);
+    const { rIni, rFin } = DATOS.base;
+    const area = Math.PI / 4 * (rFin * rFin - rIni * rIni);
+    const paso = Math.sqrt(area / total) * 0.96;
+    const hueco = 0.04;
+    const arco = Math.PI / 2 - hueco * (cs.length - 1);
+    const signo = side === 0 ? 1 : -1;
+    const ranuras = [], sectores = [], porClase = [];
+    let a = 0;
+    cs.forEach((cl, c) => {
+      const w = arco * cl.cap / total;
+      const pos = [];
+      for (let r = rIni + paso / 2; pos.length < cl.cap; r += paso * 0.92) {
+        const n = Math.max(1, Math.floor(w * r / paso));
+        for (let i = 0; i < n && pos.length < cl.cap; i++) {
+          const an = a + (i + 0.5) * w / n;
+          pos.push({ x: bx + signo * r * Math.cos(an), y: by - signo * r * Math.sin(an), r });
+        }
+      }
+      const lista = [];
+      pos.forEach((p, i) => {
+        const ra = { x: p.x, y: p.y, c, full: i < cl.ini, listo: 0, prep: false, lista: i >= cl.ini - DATOS.listas.tope[c], idx: ranuras.length };
+        ranuras.push(ra); lista.push(ra);
+      });
+      porClase.push(lista);
+      sectores.push({ a0: a, a1: a + w });
+      a += w + hueco;
+    });
+    return { x: bx, y: by, side, ranuras, sectores, porClase, acum: [0, 0], ocup: 0, signo, cola: cs.map(() => []), lineas: cs.map(c => new Array(c.lineas).fill(0)), salidaI: [0, 0], salidas: [], reponer: cs.map(() => 0) };
+  }
+
+  function sectorEn(b, x, y) {
+    const dx = (x - b.x) * b.signo, dy = (b.y - y) * b.signo;
+    const r = Math.hypot(dx, dy);
+    if (r > DATOS.base.rFin + 24 || dx < -14 || dy < -14) return -1;
+    const a = Math.atan2(Math.max(dy, 0), Math.max(dx, 0));
+    for (let c = 0; c < b.sectores.length; c++) {
+      const s = b.sectores[c];
+      if (a <= s.a1 + 0.02) return c;
+    }
+    return b.sectores.length - 1;
+  }
+
+  // Creación
+  function crear({ seed = 1, mapa = null } = {}) {
+    const m = mapa || A.crearVacio(), der = A.derivar(m);
+    const size = A.CELDA, cols = A.COLS, rows = A.ROWS, W = A.W, H = A.H, n = A.N;
+    const st = {
+      W, H, sem: seed | 0, seed, t: 0, sigId: 1, fin: null,
+      bases: [construirBase(0, A.BASES[0].x, A.BASES[0].y), construirBase(1, A.BASES[1].x, A.BASES[1].y)],
+      units: [], ev: [], auto: [false, false],
+      ter: { cols, rows, size, ctrl: new Float32Array(n), delta: new Float32Array(n), cuenta: [0, 0], ind: [0, 0] },
+      vis: [new Uint8Array(n), new Uint8Array(n)],
+      mem: [new Int8Array(n), new Int8Array(n)],
+      memR: [], memRoto: [new Uint8Array(n), new Uint8Array(n)], stats: { bajas: [0, 0], lanzados: [0, 0] },
+      desplegados: [0, 0],
+      mapa: { nombre: m.nombre, areas: m.areas, lineas: m.lineas, der, costas: A.costas(m) },
+      roto: new Int32Array(n), rotos: [], campos: new Map(), anclas: new Int32Array(n).fill(-1),
+      velT: [new Float32Array(n), new Float32Array(n)],
+      ciudades: [], puentes: [], vigia: [[], []], radar: [[], []],
+      fotos: [new Map(), new Map()], alertas: [[], []],
+      urbes: [], conq: [0, 0], god: false,
+    };
+    st.D = Math.hypot(st.bases[0].x - st.bases[1].x, st.bases[0].y - st.bases[1].y);
+    st.v = DATOS.clases.map(c => DATOS.dRef / c.cruce);
+    const tc = 64, gc = Math.ceil(W / tc) + 1, gr = Math.ceil(H / tc) + 1;
+    st.rej = { t: tc, cols: gc, rows: gr, cubos: Array.from({ length: gc * gr * 4 }, () => []) };
+    const { rTerreno } = DATOS.base, R = DATOS.relieve;
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+      const x = (i + 0.5) * size, y = (j + 0.5) * size, k = i + j * cols, t = m.areas[k];
+      for (let q = 0; q < 2; q++) st.velT[q][k] = der.camino[k] ? R.camino[q] : R.vel[q][t];
+      if (t === A.CIUDAD) st.ciudades.push(k);
+      if (der.puente[k]) st.puentes.push(k);
+      if (der.bloqueo[k]) continue;
+      if (der.separa) st.ter.ctrl[k] = der.lado[k];
+      else if (Math.hypot(x - st.bases[0].x, y - st.bases[0].y) <= rTerreno) st.ter.ctrl[k] = 1;
+      else if (Math.hypot(x - st.bases[1].x, y - st.bases[1].y) <= rTerreno) st.ter.ctrl[k] = -1;
+      if (der.separa) {
+        let junto = false;
+        for (let dy = -1; dy <= 1 && !junto; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const a = i + dx, b = j + dy;
+          if (a >= 0 && b >= 0 && a < cols && b < rows && der.fro[a + b * cols]) { junto = true; break; }
+        }
+        if (junto) st.vigia[der.lado[k] > 0 ? 0 : 1].push(k);
+      }
+    }
+    // Radar: línea de vista calculada una vez; la montaña se ve, lo que está detrás no.
+    for (let s = 0; s < 2; s++) {
+      const b = st.bases[s], lista = st.radar[s];
+      for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+        const x = (i + 0.5) * size, y = (j + 0.5) * size;
+        if (Math.hypot(x - b.x, y - b.y) > DATOS.base.rVision) continue;
+        let libre = true;
+        const destino = i + j * cols;
+        A.celdasDeSegmento(b.x, b.y, x, y, (ci, cj) => { const q = ci + cj * cols; if (q !== destino && m.areas[q] === A.MONTANA) libre = false; });
+        if (libre) lista.push(destino);
+      }
+    }
+    for (let s = 0; s < 2; s++) {
+      for (let i = 0; i < n; i++) st.mem[s][i] = dueno(st, i);
+      st.memR[s] = Uint8Array.from(st.bases[1 - s].ranuras, r => (r.full ? 1 : 0));
+    }
+    // Ciudades: cada grupo de celdas urbanas contiguas es un objetivo.
+    const vistoU = new Uint8Array(n);
+    for (const k0 of st.ciudades) {
+      if (vistoU[k0]) continue;
+      const celdas = [k0]; vistoU[k0] = 1;
+      let sx = 0, sy = 0;
+      for (let h = 0; h < celdas.length; h++) {
+        const k = celdas[h], i = k % cols, j = (k - i) / cols;
+        sx += (i + .5) * size; sy += (j + .5) * size;
+        for (const [dx, dy] of V8) {
+          const a = i + dx, b = j + dy;
+          if (a < 0 || b < 0 || a >= cols || b >= rows) continue;
+          const q = a + b * cols;
+          if (!vistoU[q] && m.areas[q] === A.CIUDAD) { vistoU[q] = 1; celdas.push(q); }
+        }
+      }
+      st.urbes.push({ celdas, x: sx / celdas.length, y: sy / celdas.length, dueno: 0 });
+    }
+    if (der.separa) {
+      for (const b of st.bases) for (const g of DATOS.salidas.angulos) {
+        const a = g * Math.PI / 180, r = DATOS.salidas.r;
+        b.salidas.push(destinoValido(st, clamp(b.x + b.signo * r * Math.cos(a), 0, W), clamp(b.y - b.signo * r * Math.sin(a), 0, H)));
+      }
+    }
+    contarTerreno(st);
+    indexar(st);
+    vision(st);
+    return st;
+  }
+
+  const dueno = (st, i) => {
+    const c = st.ter.ctrl[i], u = DATOS.terreno.umbral;
+    return c > u ? 1 : c < -u ? -1 : 0;
+  };
+  function celdaDe(st, x, y) {
+    const T = st.ter;
+    const i = clamp(Math.floor(x / T.size), 0, T.cols - 1);
+    const j = clamp(Math.floor(y / T.size), 0, T.rows - 1);
+    return i + j * T.cols;
+  }
+  function contarTerreno(st) {
+    let a = 0, b = 0;
+    for (let i = 0; i < st.ter.ctrl.length; i++) {
+      const d = dueno(st, i);
+      if (d > 0) a++; else if (d < 0) b++;
+    }
+    st.ter.cuenta[0] = a; st.ter.cuenta[1] = b;
+    st.ter.ind[0] = a; st.ter.ind[1] = b;
+    for (const k of st.ciudades) {
+      const d = dueno(st, k);
+      if (d) st.ter.ind[d > 0 ? 0 : 1] += DATOS.industria.ciudad;
+    }
+    for (const u of st.urbes) u.dueno = duenoUrbe(u.celdas, k => dueno(st, k));
+  }
+  // Una ciudad es de quien controla la mayoría de sus celdas.
+  function duenoUrbe(celdas, f) {
+    let a = 0, b = 0;
+    for (const k of celdas) { const d = f(k); if (d > 0) a++; else if (d < 0) b++; }
+    return a * 2 > celdas.length ? 1 : b * 2 > celdas.length ? -1 : 0;
+  }
+
+  // Rutas: un campo de costos por destino y tipo de marcha, recalculado solo si cambia un puente.
+  const V8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+  const transitable = (st, k) => !st.mapa.der.bloqueo[k] && !st.roto[k];
+  function calcularCampo(st, dest, q) {
+    const { cols, rows } = st.ter, n = cols * rows, f = new Float64Array(n).fill(Infinity), vel = st.velT[q];
+    const costos = [], nodos = [];
+    const subir = (c, k) => {
+      let i = costos.length;
+      costos.push(c); nodos.push(k);
+      while (i > 0) {
+        const p = (i - 1) >> 1;
+        if (costos[p] <= c) break;
+        costos[i] = costos[p]; nodos[i] = nodos[p]; i = p;
+      }
+      costos[i] = c; nodos[i] = k;
+    };
+    const bajar = () => {
+      const c0 = costos[0], k0 = nodos[0], c = costos.pop(), k = nodos.pop(), m = costos.length;
+      if (m > 0) {
+        let i = 0;
+        for (;;) {
+          let h = 2 * i + 1;
+          if (h >= m) break;
+          if (h + 1 < m && costos[h + 1] < costos[h]) h++;
+          if (costos[h] >= c) break;
+          costos[i] = costos[h]; nodos[i] = nodos[h]; i = h;
+        }
+        costos[i] = c; nodos[i] = k;
+      }
+      return [c0, k0];
+    };
+    f[dest] = 0; subir(0, dest);
+    while (costos.length) {
+      const [c, k] = bajar();
+      if (c > f[k]) continue;
+      const i = k % cols, j = (k - i) / cols;
+      for (const [dx, dy] of V8) {
+        const x = i + dx, y = j + dy;
+        if (x < 0 || y < 0 || x >= cols || y >= rows) continue;
+        const o = x + y * cols;
+        if (!transitable(st, o)) continue;
+        if (dx && dy && (!transitable(st, i + dx + j * cols) || !transitable(st, i + (j + dy) * cols))) continue;
+        const nc = c + (dx && dy ? 1.4142 : 1) / vel[o];
+        if (nc < f[o]) { f[o] = nc; subir(nc, o); }
+      }
+    }
+    return f;
+  }
+  // Las rutas se calculan por zona de 4×4 celdas (el mapa se divide exacto, así ambos lados son espejo): muchas unidades con destinos cercanos comparten un solo campo.
+  // Cada parte conexa de la zona tiene su propia ancla, para que un río dentro de la zona no se cruce a pie.
+  const ZONA = 4;
+  function anclaDe(st, k) {
+    const a = st.anclas;
+    if (a[k] >= 0) return a[k];
+    if (!transitable(st, k)) return k;
+    const { cols, rows, size } = st.ter, bi = Math.floor((k % cols) / ZONA), bj = Math.floor(((k - (k % cols)) / cols) / ZONA);
+    const cx = bi * ZONA + (ZONA - 1) / 2, cy = bj * ZONA + (ZONA - 1) / 2, mx = (cols - 1) / 2, my = (rows - 1) / 2, comp = [k], visto = new Set(comp);
+    for (let h = 0; h < comp.length; h++) {
+      const c = comp[h], i = c % cols, j = (c - i) / cols;
+      for (const [dx, dy] of V8) {
+        const x = i + dx, y = j + dy;
+        if (x < 0 || y < 0 || x >= cols || y >= rows || Math.floor(x / ZONA) !== bi || Math.floor(y / ZONA) !== bj) continue;
+        const o = x + y * cols;
+        if (visto.has(o) || !transitable(st, o)) continue;
+        if (dx && dy && (!transitable(st, i + dx + j * cols) || !transitable(st, i + (j + dy) * cols))) continue;
+        visto.add(o); comp.push(o);
+      }
+    }
+    // El desempate mira al centro del mapa: la ancla de una zona y la de su espejo son espejo.
+    let m = comp[0], md = Infinity, mc = Infinity;
+    for (const c of comp) {
+      const i = c % cols, j = (c - i) / cols, d = (i - cx) * (i - cx) + (j - cy) * (j - cy), dc = (i - mx) * (i - mx) + (j - my) * (j - my);
+      if (d < md || (d === md && dc < mc)) { md = d; mc = dc; m = c; }
+    }
+    for (const c of comp) a[c] = m;
+    return m;
+  }
+  function limpiarRutas(st) { st.campos.clear(); st.anclas.fill(-1); }
+  function campo(st, dest, q) {
+    const ancla = anclaDe(st, dest), clave = ancla * 2 + q;
+    let f = st.campos.get(clave);
+    if (!f) {
+      f = calcularCampo(st, ancla, q);
+      if (st.campos.size >= 512) st.campos.delete(st.campos.keys().next().value);
+      st.campos.set(clave, f);
+    }
+    return f;
+  }
+  function destinoValido(st, x, y) {
+    const T = st.ter, k = celdaDe(st, x, y);
+    if (transitable(st, k)) return { x, y };
+    const ci = k % T.cols, cj = (k - ci) / T.cols;
+    for (let r = 1; r < T.cols; r++) {
+      let mejor = null, md = Infinity;
+      for (let j = Math.max(0, cj - r); j <= Math.min(T.rows - 1, cj + r); j++) for (let i = Math.max(0, ci - r); i <= Math.min(T.cols - 1, ci + r); i++) {
+        if (Math.max(Math.abs(i - ci), Math.abs(j - cj)) !== r || !transitable(st, i + j * T.cols)) continue;
+        const cx = (i + .5) * T.size, cy = (j + .5) * T.size, d = Math.hypot(cx - x, cy - y);
+        if (d < md) { md = d; mejor = { x: cx, y: cy }; }
+      }
+      if (mejor) return mejor;
+    }
+    return { x, y };
+  }
+  // Segundos que le faltan a una unidad para llegar a su destino; Infinity si no hay ruta.
+  function eta(st, u) {
+    if (u.r !== TIERRA) return Math.hypot(u.x - u.tx, u.y - u.ty) / st.v[u.c];
+    const q = u.c === VEHICULO ? 1 : 0, ci = celdaDe(st, u.x, u.y), cd = celdaDe(st, u.tx, u.ty), f = campo(st, cd, q);
+    if (u.via) {
+      const cv = celdaDe(st, u.via.x, u.via.y);
+      return (campo(st, cv, q)[ci] + f[cv]) * st.ter.size / st.v[u.c];
+    }
+    if (ci === cd) return Math.hypot(u.x - u.tx, u.y - u.ty) / (st.v[u.c] * (st.velT[q][ci] || 1));
+    return f[ci] * st.ter.size / st.v[u.c];
+  }
+  // Segundos desde la orden hasta llegar, para mostrarlos antes de decidir.
+  function etaOrden(st, s, c, x, y) {
+    const b = st.bases[s], cl = DATOS.clases[c], ls = b.lineas[c];
+    const lista = b.porClase[c].some(r => r.full && r.lista && !r.prep);
+    const libre = Math.max(0, (Math.min(...ls) - st.t) * DT);
+    const pre = lista ? DATOS.listas.salida : libre + cl.alistar;
+    if (!esSuelo(c)) return pre + Math.hypot(x - b.x, y - b.y) / st.v[c];
+    const ra = b.porClase[c].find(r => r.full) || b.porClase[c][0], q = c === VEHICULO ? 1 : 0;
+    const dest = destinoValido(st, x, y), f = campo(st, celdaDe(st, dest.x, dest.y), q);
+    const cost = f[celdaDe(st, ra.x, ra.y)];
+    return Number.isFinite(cost) ? pre + cost * st.ter.size / st.v[c] : Infinity;
+  }
+  function marchar(st, u) {
+    const T = st.ter, q = u.c === VEHICULO ? 1 : 0, tx = u.via ? u.via.x : u.tx, ty = u.via ? u.via.y : u.ty;
+    const ci = celdaDe(st, u.x, u.y), cd = celdaDe(st, tx, ty);
+    const pisa = transitable(st, ci), v = st.v[u.c] * (pisa ? st.velT[q][ci] : 1);
+    const ac = anclaDe(st, cd);
+    if (ci === cd || !pisa || anclaDe(st, ci) === ac) {
+      if (mover(u, v, tx, ty)) { if (u.via) u.via = null; else u.st = QUIETO; }
+      return;
+    }
+    const f = campo(st, cd, q);
+    let mejor = -1, md = f[ci];
+    if (!Number.isFinite(md)) { u.via = null; u.st = QUIETO; return; }
+    const i = ci % T.cols, j = (ci - i) / T.cols;
+    for (const [dx, dy] of V8) {
+      const x = i + dx, y = j + dy;
+      if (x < 0 || y < 0 || x >= T.cols || y >= T.rows) continue;
+      const o = x + y * T.cols;
+      if (f[o] >= md || !transitable(st, o)) continue;
+      if (dx && dy && (!transitable(st, i + dx + j * T.cols) || !transitable(st, i + (j + dy) * T.cols))) continue;
+      md = f[o]; mejor = o;
+    }
+    if (mejor < 0) { u.st = QUIETO; return; }
+    if (anclaDe(st, mejor) === ac) { mover(u, v, tx, ty); return; }
+    const mi = mejor % T.cols, mj = (mejor - mi) / T.cols;
+    mover(u, v, (mi + .5) * T.size, (mj + .5) * T.size);
+  }
+
+  // Rejilla espacial
+  function indexar(st) {
+    const g = st.rej;
+    for (const a of g.cubos) a.length = 0;
+    for (const u of st.units) {
+      if (u.dead) continue;
+      const cx = clamp(Math.floor(u.x / g.t), 0, g.cols - 1);
+      const cy = clamp(Math.floor(u.y / g.t), 0, g.rows - 1);
+      g.cubos[(cx + cy * g.cols) * 4 + u.s * 2 + (esSuelo(u.c) ? 1 : 0)].push(u);
+    }
+  }
+  function masCercano(st, side, tierra, x, y, r, pred) {
+    const g = st.rej;
+    const x0 = clamp(Math.floor((x - r) / g.t), 0, g.cols - 1), x1 = clamp(Math.floor((x + r) / g.t), 0, g.cols - 1);
+    const y0 = clamp(Math.floor((y - r) / g.t), 0, g.rows - 1), y1 = clamp(Math.floor((y + r) / g.t), 0, g.rows - 1);
+    let mejor = null, md = r * r;
+    for (let cy = y0; cy <= y1; cy++) for (let cx = x0; cx <= x1; cx++) {
+      const a = g.cubos[(cx + cy * g.cols) * 4 + side * 2 + tierra];
+      for (let i = 0; i < a.length; i++) {
+        const u = a[i];
+        if (u.dead) continue;
+        const dx = u.x - x, dy = u.y - y, d2 = dx * dx + dy * dy;
+        if (d2 <= md && (!pred || pred(u))) { md = d2; mejor = u; }
+      }
+    }
+    return mejor;
+  }
+
+  // Niebla
+  const circulos = new Map();
+  function circulo(r) {
+    let c = circulos.get(r);
+    if (c) return c;
+    c = [];
+    for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) if (x * x + y * y <= r * r) c.push(x, y);
+    circulos.set(r, c);
+    return c;
+  }
+  function estampar(st, s, cx, cy, r) {
+    const T = st.ter, c = circulo(r), v = st.vis[s];
+    for (let k = 0; k < c.length; k += 2) {
+      const x = cx + c[k], y = cy + c[k + 1];
+      if (x >= 0 && y >= 0 && x < T.cols && y < T.rows) v[x + y * T.cols] = 1;
+    }
+  }
+  function vision(st) {
+    const T = st.ter;
+    for (let s = 0; s < 2; s++) {
+      st.vis[s].fill(0);
+      const v = st.vis[s], signo = s === 0 ? 1 : -1;
+      for (const k of st.radar[s]) v[k] = 1;
+      const puesto = (k, r) => { if (dueno(st, k) === signo) { const i = k % T.cols; estampar(st, s, i, (k - i) / T.cols, r); } };
+      for (const k of st.vigia[s]) puesto(k, DATOS.vigilancia.frontera);
+      for (const k of st.ciudades) puesto(k, DATOS.vigilancia.ciudad);
+    }
+    for (const u of st.units) {
+      if (u.dead) continue;
+      estampar(st, u.s, Math.floor(u.x / T.size), Math.floor(u.y / T.size), Math.max(1, Math.round(DATOS.clases[u.c].vis / T.size)));
+    }
+    for (let s = 0; s < 2; s++) {
+      const v = st.vis[s], m = st.mem[s];
+      for (let i = 0; i < v.length; i++) if (v[i]) m[i] = dueno(st, i);
+      const rs = st.bases[1 - s].ranuras, mr = st.memR[s];
+      for (let i = 0; i < rs.length; i++) if (v[celdaDe(st, rs[i].x, rs[i].y)]) mr[i] = rs[i].full ? 1 : 0;
+      for (const k of st.puentes) if (v[k]) st.memRoto[s][k] = st.roto[k] ? 1 : 0;
+    }
+    identificar(st);
+    pasarSatelites(st);
+  }
+  // Satélites: franjas que cruzan el mapa. Cada bando tiene la misma constelación, reflejada.
+  function satelites(st, s) {
+    return DATOS.satelites.map(sa => {
+      const nd = Math.hypot(sa.dir[0], sa.dir[1]), ux = sa.dir[0] / nd, uy = sa.dir[1] / nd;
+      const ph = (st.t * DT + sa.fase) % sa.periodo, activo = ph < sa.transito;
+      const esq = [0, ux * st.W, uy * st.H, ux * st.W + uy * st.H], pmin = Math.min(...esq), pmax = Math.max(...esq);
+      let c = pmin - sa.ancho / 2 + (ph / sa.transito) * (pmax - pmin + sa.ancho);
+      if (s === 1) c = ux * st.W + uy * st.H - c;
+      return { id: sa.id, nombre: sa.nombre, activo, c, ux, uy, ancho: sa.ancho, faltan: activo ? sa.transito - ph : sa.periodo - ph, vida: sa.vida };
+    });
+  }
+  function foto(st, s, u, c, sat, vidaS) {
+    const m = st.fotos[s], viejo = m.get(u.id);
+    m.set(u.id, { id: u.id, x: u.x, y: u.y, c: c >= 0 ? c : (viejo ? viejo.c : -1), t: st.t, vence: st.t + Math.round(vidaS / DT), sat });
+  }
+  function pasarEspias(st) {
+    for (const e of st.units) {
+      if (e.dead || e.r !== ESP || e.st === REGRESO) continue;
+      const idr = DATOS.clases[e.c].idr;
+      for (const u of st.units) {
+        if (u.dead || u.s === e.s || Math.hypot(u.x - e.x, u.y - e.y) > idr) continue;
+        if (u.r === TIERRA && st.mapa.areas[celdaDe(st, u.x, u.y)] === A.BOSQUE && Math.hypot(u.x - e.x, u.y - e.y) > DATOS.bosque.rDeteccion) continue;
+        foto(st, e.s, u, u.c, 'espia', 60);
+      }
+    }
+  }
+  function pasarSatelites(st) {
+    pasarEspias(st);
+    const T = st.ter;
+    for (let s = 0; s < 2; s++) {
+      for (const sa of satelites(st, s)) {
+        if (!sa.activo) continue;
+        const dentro = (x, y) => Math.abs(x * sa.ux + y * sa.uy - sa.c) <= sa.ancho / 2;
+        for (const u of st.units) {
+          if (u.dead || u.s === s || !dentro(u.x, u.y)) continue;
+          const tierra = u.r === TIERRA;
+          if (sa.id === 'optico') {
+            if (tierra && st.mapa.areas[celdaDe(st, u.x, u.y)] === A.BOSQUE) continue;
+            foto(st, s, u, u.c, sa.id, sa.vida);
+            if (st.vis[s][celdaDe(st, u.x, u.y)]) u.idt = true;
+          } else if (sa.id === 'radar') {
+            if (tierra) foto(st, s, u, -1, sa.id, sa.vida);
+          } else if (u.c === AVION || u.c === DRON || u.r === ESP) foto(st, s, u, -1, sa.id, sa.vida);
+        }
+        if (sa.id !== 'optico') continue;
+        // La foto también actualiza lo que se sabe del terreno, los puentes y la base enemiga.
+        for (let j = 0; j < T.rows; j++) for (let i = 0; i < T.cols; i++) {
+          if (!dentro((i + .5) * T.size, (j + .5) * T.size)) continue;
+          const k = i + j * T.cols;
+          st.mem[s][k] = dueno(st, k);
+          if (st.mapa.der.puente[k]) st.memRoto[s][k] = st.roto[k] ? 1 : 0;
+        }
+        const rs = st.bases[1 - s].ranuras;
+        for (let i = 0; i < rs.length; i++) if (dentro(rs[i].x, rs[i].y)) st.memR[s][i] = rs[i].full ? 1 : 0;
+      }
+      for (const [id, f] of st.fotos[s]) if (st.t >= f.vence) st.fotos[s].delete(id);
+      const vida = Math.round(DATOS.alerta.vida / DT);
+      if (st.alertas[s].length) st.alertas[s] = st.alertas[s].filter(a => st.t - a.t < vida);
+    }
+  }
+
+  // Detectar no es identificar: el contacto es gris hasta que un sensor cercano le pone clase.
+  const RADIO_ID = Math.max(...DATOS.clases.map(c => c.idr));
+  function identificar(st) {
+    for (const u of st.units) {
+      if (u.dead) continue;
+      const s = 1 - u.s;
+      const cu = celdaDe(st, u.x, u.y);
+      if (!st.vis[s][cu]) { u.idt = false; u.oculto = false; continue; }
+      // El bosque esconde a las tropas de todo lo que no esté encima.
+      u.oculto = u.r === TIERRA && st.mapa.areas[cu] === A.BOSQUE
+        && !masCercano(st, s, 0, u.x, u.y, DATOS.bosque.rDeteccion) && !masCercano(st, s, 1, u.x, u.y, DATOS.bosque.rDeteccion);
+      if (u.c === ESPIA_D && !masCercano(st, s, 0, u.x, u.y, DATOS.sigilo.rDeteccion) && !masCercano(st, s, 1, u.x, u.y, DATOS.sigilo.rDeteccion)) u.oculto = true;
+      if (u.oculto) { u.idt = false; continue; }
+      if (u.idt) continue;
+      const b = st.bases[s];
+      if (Math.hypot(u.x - b.x, u.y - b.y) <= DATOS.base.rIdent) { u.idt = true; continue; }
+      const cerca = w => Math.hypot(w.x - u.x, w.y - u.y) <= DATOS.clases[w.c].idr;
+      if (masCercano(st, s, 0, u.x, u.y, RADIO_ID, cerca) || masCercano(st, s, 1, u.x, u.y, RADIO_ID, cerca)) u.idt = true;
+    }
+  }
+
+  // Órdenes
+  function rolPara(st, s, x, y) {
+    const e = st.bases[1 - s];
+    if (Math.hypot(x - e.x, y - e.y) <= DATOS.base.rZona) return ATQ;
+    const enemigo = s === 0 ? -1 : 1;
+    if (st.mem[s][celdaDe(st, x, y)] === enemigo) return ATQ;
+    const visto = masCercano(st, 1 - s, 1, x, y, DATOS.radioApoyo, u => u.idt && !u.oculto && st.vis[s][celdaDe(st, u.x, u.y)]);
+    return visto ? ATQ : INT;
+  }
+  function tomarRanura(b, c, t) {
+    const l = b.porClase[c];
+    for (let i = l.length - 1; i >= 0; i--) if (l[i].full && l[i].lista && !l[i].prep && l[i].listo <= t) return l[i];
+    for (let i = l.length - 1; i >= 0; i--) if (l[i].full && !l[i].prep && l[i].listo <= t) return l[i];
+    return null;
+  }
+  function listas(b, c, t) { let n = 0; for (const r of b.porClase[c]) if (r.full && !r.prep && r.listo <= t) n++; return n; }
+  // Reparte la tropa entre las salidas más convenientes para su destino.
+  function elegirSalida(st, s, c, x, y) {
+    const b = st.bases[s];
+    if (!b.salidas.length || Math.hypot(x - b.x, y - b.y) < DATOS.salidas.r + 30) return null;
+    const q = c === VEHICULO ? 1 : 0, f = campo(st, celdaDe(st, x, y), q);
+    const orden = b.salidas.map(p => ({ p, f: f[celdaDe(st, p.x, p.y)] })).filter(o => Number.isFinite(o.f)).sort((a, z) => a.f - z.f).slice(0, DATOS.salidas.opciones);
+    if (!orden.length) return null;
+    return orden[b.salidaI[q]++ % orden.length].p;
+  }
+  function cargarRol(u) {
+    if (u.r === INT) { const i = DATOS.clases[u.c].int; u.tiros = i.tiros; u.aguante = i.aguante; }
+    else if (u.r === APOYO) { const a = DATOS.apoyo.por[u.c]; u.tiros = a.tiros; u.aguante = a.aguante; u.cd = 0; }
+  }
+  function lanzarDesde(st, s, ra, x, y, m = 0, mis = null, ancla = 0) {
+    ra.prep = false;
+    if (!ra.full) return false;
+    ra.full = false;
+    const c = ra.c, cl = DATOS.clases[c];
+    const u = { id: st.sigId++, s, c, r: 0, x: ra.x, y: ra.y, px: ra.x, py: ra.y, tx: x, ty: y, st: IDA, cd: 0, ang: azar(st) * 6.283, hp: 1, tiros: 0, aguante: 0, dead: false, idt: false, oculto: false, m, via: null };
+    u.mis = mis; u.ancla = ancla | 0;
+    if (esSuelo(c)) {
+      u.mis = mis || 'tomar';
+      const a = azar(st) * 6.283, d = azar(st) * 22;
+      u.r = TIERRA; u.st = MOVIL; u.hp = cl.tierra.hp;
+      const q = destinoValido(st, clamp(x + Math.cos(a) * d, 0, st.W), clamp(y + Math.sin(a) * d, 0, st.H));
+      u.tx = q.x; u.ty = q.y;
+      u.via = elegirSalida(st, s, c, q.x, q.y);
+      st.desplegados[s]++;
+    } else if (cl.esp) {
+      u.r = ESP; u.aguante = cl.esp.aguante;
+    } else {
+      // Sin misión, un misil siempre va a golpear: no existe el misil que espera en el aire.
+      u.r = mis ? MISIONES[mis] : c === MISIL ? ATQ : rolPara(st, s, x, y);
+      cargarRol(u);
+    }
+    if (c === MISIL) {
+      const d = Math.hypot(x - ra.x, y - ra.y) || 1;
+      st.alertas[1 - s].push({ x: ra.x, y: ra.y, ux: (x - ra.x) / d, uy: (y - ra.y) / d, t: st.t });
+    }
+    st.units.push(u);
+    st.stats.lanzados[s]++;
+    return true;
+  }
+  function reasignar(st, s, u, x, y, mis, ancla) {
+    if (u.st === REGRESO) return false;
+    if (u.r === ESP) { u.tx = x; u.ty = y; u.st = IDA; return !mis || mis === 'reconocer'; }
+    if (mis && !admite(u.c, mis)) return false;
+    const rol = mis ? MISIONES[mis] : rolPara(st, s, x, y), antes = u.r;
+    u.r = rol; u.mis = mis || null; u.ancla = ancla | 0;
+    if (rol !== antes) cargarRol(u);
+    u.tx = x; u.ty = y; u.st = IDA;
+    return true;
+  }
+  function aplicar(st, s, o) {
+    if (st.fin || !o) return false;
+    if (o.t === 'lanzar') {
+      if (o.mis !== undefined && o.mis !== null && !admite(o.c, o.mis)) return false;
+      if ((o.c === ESPIA_A || o.c === ESPIA_D) && !o.mis) return false;
+      if (!Number.isInteger(o.c) || o.c < 0 || o.c > 6 || !Number.isFinite(o.x) || !Number.isFinite(o.y)) return false;
+      const x = clamp(o.x, 0, st.W), y = clamp(o.y, 0, st.H);
+      const b = st.bases[s], cola = b.cola[o.c], cl = DATOS.clases[o.c];
+      if (esSuelo(o.c) && st.desplegados[s] + cola.length >= DATOS.maxTierra) return false;
+      if (cola.length >= DATOS.maxCola) return false;
+      const ra = tomarRanura(b, o.c, st.t);
+      if (!ra) return false;
+      // Alistar: la unidad sigue en su ranura, y por tanto expuesta, hasta que sale.
+      // Cada clase tiene varias líneas en paralelo: las primeras órdenes salen juntas.
+      let listo;
+      if (ra.lista) {
+        ra.lista = false;
+        listo = st.t + Math.round(DATOS.listas.salida / DT);
+        b.reponer[o.c] = Math.max(b.reponer[o.c], st.t + Math.round(cl.alistar / DT));
+      } else {
+        const espera = Math.round(cl.alistar / DT), ls = b.lineas[o.c];
+        let li = 0;
+        for (let i = 1; i < ls.length; i++) if (ls[i] < ls[li]) li = i;
+        listo = Math.max(st.t, ls[li]) + espera;
+        ls[li] = listo;
+      }
+      const mision = o.m | 0, mis = o.mis || null;
+      // Un misil interceptor se fija en la nave aérea visible más cercana al punto ordenado.
+      let ancla = o.ancla | 0;
+      if (o.c === MISIL && mis === 'interceptar') {
+        const t = masCercano(st, 1 - s, 0, x, y, 40, w => !w.oculto && st.vis[s][celdaDe(st, w.x, w.y)]);
+        ancla = t ? t.id : 0;
+      }
+      if (listo <= st.t) return lanzarDesde(st, s, ra, x, y, mision, mis, ancla);
+      ra.prep = true;
+      cola.push({ x, y, ra, listo, m: mision, mis, ancla });
+      return true;
+    }
+    if (o.t === 'mover') {
+      if (!Array.isArray(o.ids) || !Number.isFinite(o.x) || !Number.isFinite(o.y)) return false;
+      const ids = new Set(o.ids), x = clamp(o.x, 0, st.W), y = clamp(o.y, 0, st.H);
+      const tropas = [], aire = [];
+      for (const u of st.units) {
+        if (u.dead || u.s !== s || !ids.has(u.id)) continue;
+        if (u.r === TIERRA) { if (!o.mis || admite(u.c, o.mis)) tropas.push(u); } else if (u.c !== MISIL) aire.push(u);
+      }
+      let n = 0;
+      if (tropas.length) {
+        let cx = 0, cy = 0, rmax = 0;
+        for (const u of tropas) { cx += u.x; cy += u.y; }
+        cx /= tropas.length; cy /= tropas.length;
+        for (const u of tropas) rmax = Math.max(rmax, Math.hypot(u.x - cx, u.y - cy));
+        // El grupo conserva su forma, algo más compacta.
+        const k = rmax > 0 ? Math.min(0.7, 80 / rmax) : 0;
+        for (const u of tropas) {
+          const a = azar(st) * 6.283, d = azar(st) * 6;
+          const q = destinoValido(st, clamp(x + (u.x - cx) * k + Math.cos(a) * d, 0, st.W), clamp(y + (u.y - cy) * k + Math.sin(a) * d, 0, st.H));
+          u.tx = q.x; u.ty = q.y;
+          u.st = MOVIL; u.via = null; n++;
+          u.mis = o.mis || 'tomar';
+          if (o.m) u.m = o.m | 0;
+        }
+      }
+      for (const u of aire) if (reasignar(st, s, u, x, y, o.mis || null, o.ancla)) { n++; if (o.m) u.m = o.m | 0; }
+      return n > 0;
+    }
+    if (o.t === 'regresar') {
+      if (!Array.isArray(o.ids)) return false;
+      const ids = new Set(o.ids);
+      let n = 0;
+      for (const u of st.units) {
+        if (u.dead || u.s !== s || !ids.has(u.id) || u.r === TIERRA || u.c === MISIL || u.st === REGRESO) continue;
+        u.st = REGRESO; n++;
+      }
+      return n > 0;
+    }
+    // GOD: solo para el bando del jugador; la IA no puede pedirlo.
+    if (o.t === 'god') { if (s !== 0) return false; st.god = !!o.on; return true; }
+    if (o.t === 'auto') { st.auto[s] = !!o.on; return true; }
+    return false;
+  }
+
+  // Paso de simulación
+  function matar(st, u) {
+    if (u.dead) return;
+    u.dead = true;
+    st.stats.bajas[u.s]++;
+    if (esSuelo(u.c)) st.desplegados[u.s]--;
+    st.ev.push({ k: 'baja', x: u.x, y: u.y, c: u.c, s: u.s, t: st.t, m: u.m });
+  }
+  function mover(u, v, tx, ty) {
+    const dx = tx - u.x, dy = ty - u.y, d = Math.hypot(dx, dy), p = v * DT;
+    if (d <= p) { u.x = tx; u.y = ty; return true; }
+    u.x += dx / d * p; u.y += dy / d * p;
+    return false;
+  }
+  function factor(st, u) {
+    const propio = u.s === 0 ? 1 : -1;
+    const d = dueno(st, celdaDe(st, u.x, u.y));
+    const su = DATOS.suministro;
+    return d === propio ? su.propio : d === 0 ? su.neutral : su.enemigo;
+  }
+  function golpear(st, s, x, y, a) {
+    const b = st.bases[1 - s];
+    const cand = [];
+    if (Math.hypot(x - b.x, y - b.y) <= DATOS.base.rFin + a.r + 4) {
+      for (const ra of b.ranuras) {
+        if (!ra.full) continue;
+        const d = Math.hypot(ra.x - x, ra.y - y);
+        if (d <= a.r) cand.push({ d, ra });
+      }
+    }
+    const g = st.rej, c0 = clamp(Math.floor((x - a.r) / g.t), 0, g.cols - 1), c1 = clamp(Math.floor((x + a.r) / g.t), 0, g.cols - 1);
+    const f0 = clamp(Math.floor((y - a.r) / g.t), 0, g.rows - 1), f1 = clamp(Math.floor((y + a.r) / g.t), 0, g.rows - 1);
+    for (let cy = f0; cy <= f1; cy++) for (let cx = c0; cx <= c1; cx++) {
+      for (const u of g.cubos[(cx + cy * g.cols) * 4 + (1 - s) * 2 + 1]) {
+        if (u.dead) continue;
+        const d = Math.hypot(u.x - x, u.y - y);
+        if (d <= a.r) cand.push({ d, u });
+      }
+    }
+    cand.sort((p, q) => p.d - q.d || (p.ra ? p.ra.idx : p.u.id) - (q.ra ? q.ra.idx : q.u.id));
+    let n = 0;
+    for (let i = 0; i < cand.length && n < a.k; i++) {
+      const co = cand[i];
+      if (co.ra) {
+        if (azar(st) < DATOS.pkRefugio * (a.pk || 1)) {
+          co.ra.full = false; n++; st.stats.bajas[1 - s]++;
+          st.ev.push({ k: 'baja', x: co.ra.x, y: co.ra.y, c: co.ra.c, s: 1 - s, t: st.t, ra: true });
+        }
+      } else if (azar(st) < DATOS.pkAbierto * (a.pk || 1)) { co.u.hp = 0; matar(st, co.u); n++; }
+    }
+    st.ev.push({ k: 'golpe', x, y, r: a.r, s, t: st.t });
+    if (a.ablanda) {
+      const T0 = st.ter;
+      for (const u of st.urbes) for (const k of u.celdas) {
+        const i = k % T0.cols, j = (k - i) / T0.cols;
+        if (Math.hypot((i + .5) * T0.size - x, (j + .5) * T0.size - y) <= a.r) T0.ctrl[k] *= 1 - a.ablanda;
+      }
+    }
+    const T = st.ter, alcance = a.r + 6;
+    for (const k of st.puentes) {
+      if (st.roto[k]) continue;
+      const i = k % T.cols, j = (k - i) / T.cols;
+      if (Math.hypot((i + .5) * T.size - x, (j + .5) * T.size - y) > alcance || azar(st) >= DATOS.puente.pk) continue;
+      st.roto[k] = st.t + Math.round(DATOS.puente.reparacion / DT);
+      st.rotos.push(k);
+      limpiarRutas(st);
+      st.ev.push({ k: 'puente', x: (i + .5) * T.size, y: (j + .5) * T.size, s, t: st.t });
+    }
+  }
+  function aterrizar(st, u) {
+    const b = st.bases[u.s], l = b.porClase[u.c];
+    for (const ra of l) {
+      if (!ra.full) {
+        ra.full = true; ra.lista = false; ra.listo = st.t + Math.round(DATOS.clases[u.c].rearme / DT);
+        break;
+      }
+    }
+    u.dead = true;
+  }
+  function pasoAire(st, u) {
+    const cl = DATOS.clases[u.c], v = st.v[u.c];
+    if (u.st === REGRESO) {
+      const b = st.bases[u.s], s = b.sectores[u.c], a = (s.a0 + s.a1) / 2, r = DATOS.base.rFin * 0.6;
+      if (mover(u, v, b.x + b.signo * r * Math.cos(a), b.y - b.signo * r * Math.sin(a))) aterrizar(st, u);
+      return;
+    }
+    if (u.ancla) {
+      const a = st.units.find(w => w.id === u.ancla && !w.dead);
+      if (a) { u.tx = a.x; u.ty = a.y; }
+      else { u.ancla = 0; if (u.mis === 'escolta') { u.st = REGRESO; return; } }
+    }
+    const orbitar = o => {
+      if (o > 0) { u.ang += v * 0.5 / o * DT; u.x = clamp(u.tx + Math.cos(u.ang) * o, 0, st.W); u.y = clamp(u.ty + Math.sin(u.ang) * o, 0, st.H); }
+      u.aguante -= DT;
+      if (u.aguante <= 0) u.st = REGRESO;
+    };
+    if (u.r === ESP) {
+      if (u.st === IDA) { if (mover(u, v, u.tx, u.ty)) u.st = PATRULLA; } else orbitar(cl.esp.orbita);
+      return;
+    }
+    if (u.r === APOYO) {
+      const P = DATOS.apoyo;
+      if (u.st === IDA) { if (mover(u, v, u.tx, u.ty)) u.st = PATRULLA; } else orbitar(P.orbita);
+      if (u.cd > 0) u.cd -= DT;
+      if (u.st !== REGRESO && u.cd <= 0 && u.tiros > 0) {
+        const t = masCercano(st, 1 - u.s, 1, u.x, u.y, P.rango, w => w.idt && !w.oculto);
+        if (t) { u.tiros--; u.cd = P.cd; u.idt = true; golpear(st, u.s, t.x, t.y, P.golpe); if (u.tiros <= 0) u.st = REGRESO; }
+      }
+      return;
+    }
+    if (u.r === ATQ) {
+      if (mover(u, v, u.tx, u.ty)) {
+        golpear(st, u.s, u.x, u.y, u.mis === 'bombardear' ? DATOS.bombardeo : cl.atq);
+        if (u.c === AVION) u.st = REGRESO; else u.dead = true;
+      }
+      return;
+    }
+    const i = cl.int;
+    if (u.st === IDA) {
+      if (mover(u, v, u.tx, u.ty)) u.st = PATRULLA;
+    } else {
+      if (i.orbita > 0) {
+        u.ang += v * 0.5 / i.orbita * DT;
+        u.x = clamp(u.tx + Math.cos(u.ang) * i.orbita, 0, st.W);
+        u.y = clamp(u.ty + Math.sin(u.ang) * i.orbita, 0, st.H);
+      }
+      u.aguante -= DT;
+      if (u.aguante <= 0) {
+        if (u.c === MISIL) { u.dead = true; return; }
+        u.st = REGRESO; return;
+      }
+    }
+    if (u.cd > 0) u.cd -= DT;
+    if (u.cd <= 0 && u.tiros > 0) {
+      const e = 1 - u.s;
+      // Solo se prioriza lo identificado: un punto gris dentro del radio recibe el disparo igual.
+      const t = masCercano(st, e, 0, u.x, u.y, i.rango, w => w.idt && !w.oculto && w.r === ATQ) || masCercano(st, e, 0, u.x, u.y, i.rango, w => !w.oculto);
+      if (t) {
+        u.tiros--; u.cd = i.cd; u.idt = true;
+        st.ev.push({ k: 'tiro', x: u.x, y: u.y, x2: t.x, y2: t.y, c: u.c, s: u.s, t: st.t });
+        if (azar(st) < DATOS.pkAire[u.c][t.c]) matar(st, t);
+        if (u.c === MISIL) { u.dead = true; return; }
+        if (u.tiros <= 0) u.st = REGRESO;
+      }
+    }
+  }
+  function pasoTierra(st, u) {
+    const cl = DATOS.clases[u.c], d = cl.tierra;
+    if (u.cd > 0) u.cd -= DT;
+    let combate = false;
+    const e = 1 - u.s;
+    const t = masCercano(st, e, 1, u.x, u.y, d.rango);
+    if (t) {
+      combate = true;
+      if (u.cd <= 0) {
+        u.cd = d.cd * (0.85 + azar(st) * 0.3); u.idt = true; u.oculto = false;
+        st.ev.push({ k: 'tiro', x: u.x, y: u.y, x2: t.x, y2: t.y, c: u.c, s: u.s, t: st.t });
+        if (azar(st) < DATOS.pkTierra[u.c - 3][t.c - 3] * factor(st, u) * (t.mis === 'defender' && t.st === QUIETO ? DATOS.defensa.recibe : 1)) {
+          t.hp--;
+          if (t.hp <= 0) matar(st, t);
+        }
+      }
+    } else {
+      const b = st.bases[e];
+      if (Math.hypot(u.x - b.x, u.y - b.y) <= DATOS.base.rFin + d.rango) {
+        let mejor = null, md = d.rango;
+        for (const ra of b.ranuras) {
+          if (!ra.full) continue;
+          const di = Math.hypot(ra.x - u.x, ra.y - u.y);
+          if (di <= md) { md = di; mejor = ra; }
+        }
+        if (mejor) {
+          combate = true;
+          if (u.cd <= 0) {
+            u.cd = d.cd * (0.85 + azar(st) * 0.3); u.idt = true; u.oculto = false;
+            st.ev.push({ k: 'tiro', x: u.x, y: u.y, x2: mejor.x, y2: mejor.y, c: u.c, s: u.s, t: st.t });
+            const pk = esSuelo(mejor.c) ? DATOS.pkTierra[u.c - 3][mejor.c - 3] : DATOS.pkAireEnTierra;
+            if (azar(st) < pk) {
+              mejor.full = false; st.stats.bajas[e]++;
+              st.ev.push({ k: 'baja', x: mejor.x, y: mejor.y, c: mejor.c, s: e, t: st.t, ra: true });
+            }
+          }
+        }
+      }
+    }
+    if (!combate && u.st === MOVIL) {
+      marchar(st, u);
+    }
+  }
+
+  function terreno(st) {
+    const T = st.ter, d = T.delta, P = DATOS.terreno;
+    d.fill(0);
+    for (const u of st.units) {
+      if (u.dead || u.c !== PERSONAL || u.mis === 'defender') continue;
+      const ci = clamp(Math.floor(u.x / T.size), 0, T.cols - 1), cj = clamp(Math.floor(u.y / T.size), 0, T.rows - 1);
+      const inc = u.s === 0 ? 1 : -1;
+      for (let j = Math.max(0, cj - 1); j <= Math.min(T.rows - 1, cj + 1); j++)
+        for (let i = Math.max(0, ci - 1); i <= Math.min(T.cols - 1, ci + 1); i++) d[i + j * T.cols] += inc;
+    }
+    for (let i = 0; i < d.length; i++) {
+      if (d[i] && !st.mapa.der.bloqueo[i]) T.ctrl[i] = clamp(T.ctrl[i] + clamp(d[i], -P.topePorCelda, P.topePorCelda) * P.tasa * (st.mapa.areas[i] === A.CIUDAD ? P.ciudad : 1), -1, 1);
+    }
+    contarTerreno(st);
+  }
+
+  function produccion(st) {
+    for (let s = 0; s < 2; s++) {
+      const b = st.bases[s], cuenta = st.ter.ind[s];
+      for (let k = 0; k < 2; k++) {
+        const c = k + PERSONAL, P = DATOS.prod[k];
+        b.acum[k] = Math.min(1.5, b.acum[k] + (P.base + P.raiz * Math.sqrt(cuenta)) * DT);
+        if (b.acum[k] >= 1) {
+          const libre = b.porClase[c].find(r => !r.full);
+          if (libre) { libre.full = true; libre.listo = st.t; b.acum[k] -= 1; }
+        }
+      }
+    }
+  }
+
+  function reponerListas(st) {
+    for (const b of st.bases) {
+      for (let c = 0; c <= MISIL; c++) {
+        const tope = DATOS.listas.tope[c], l = b.porClase[c], espera = Math.round(DATOS.clases[c].alistar / DT);
+        if (!tope) continue;
+        if (l.filter(r => r.full && r.lista).length >= tope) { b.reponer[c] = st.t + espera; continue; }
+        if (st.t < b.reponer[c]) continue;
+        for (let i = l.length - 1; i >= 0; i--) if (l[i].full && !l[i].lista && !l[i].prep && l[i].listo <= st.t) { l[i].lista = true; break; }
+        b.reponer[c] = st.t + espera;
+      }
+    }
+  }
+
+  function guarnicion(st) {
+    // Cada ciudad se defiende: cuanto más grande, más disparos contra quien entra.
+    const C = DATOS.conquista;
+    for (const u of st.urbes) {
+      if (!u.dueno) continue;
+      const s = u.dueno > 0 ? 0 : 1, e = 1 - s;
+      for (let i = 0; i < Math.min(u.celdas.length, C.tiros); i++) {
+        const t = masCercano(st, e, 1, u.x, u.y, C.rGuarnicion);
+        if (!t) break;
+        st.ev.push({ k: 'tiro', x: u.x, y: u.y, x2: t.x, y2: t.y, c: PERSONAL, s, t: st.t });
+        if (azar(st) < C.pk) { t.hp--; if (t.hp <= 0) matar(st, t); }
+      }
+    }
+    for (let s = 0; s < 2; s++) {
+      const b = st.bases[s], e = 1 - s;
+      if (!masCercano(st, e, 1, b.x, b.y, DATOS.base.rZona)) continue;
+      for (const c of [PERSONAL, VEHICULO]) {
+        const d = DATOS.clases[c].tierra;
+        for (const ra of b.porClase[c]) {
+          if (!ra.full) continue;
+          const t = masCercano(st, e, 1, ra.x, ra.y, d.rango + DATOS.fortin.alcance);
+          if (t) {
+            st.ev.push({ k: 'tiro', x: ra.x, y: ra.y, x2: t.x, y2: t.y, c, s, t: st.t });
+            if (azar(st) < Math.min(1, DATOS.pkTierra[c - 3][t.c - 3] * DATOS.fortin.pk)) { t.hp--; if (t.hp <= 0) matar(st, t); }
+          }
+        }
+      }
+    }
+  }
+
+  function ocupacion(st) {
+    const P = DATOS.ocupacion, rz = DATOS.base.rZona;
+    for (let s = 0; s < 2; s++) {
+      const b = st.bases[1 - s];
+      let per = 0, veh = 0, def = 0;
+      for (const u of st.units) {
+        if (u.dead || u.r !== TIERRA || Math.hypot(u.x - b.x, u.y - b.y) > rz) continue;
+        if (u.s === s) { if (u.c === PERSONAL) per++; else veh++; } else def++;
+      }
+      for (const c of [PERSONAL, VEHICULO]) for (const ra of b.porClase[c]) if (ra.full) def++;
+      if (per >= P.minPersonal && per + veh > def) b.ocup += 0.5;
+      else b.ocup = Math.max(0, b.ocup - 1);
+      if (b.ocup >= P.segundos) { st.fin = { ganador: s, t: st.t, causa: 'base' }; return; }
+    }
+    const C = DATOS.conquista, tot = st.urbes.length;
+    if (tot >= C.minimo) {
+      const meta = Math.ceil(tot * C.fraccion);
+      for (let s = 0; s < 2; s++) {
+        const signo = s === 0 ? 1 : -1, n = st.urbes.filter(u => u.dueno === signo).length;
+        st.conq[s] = n >= meta ? st.conq[s] + 0.5 : Math.max(0, st.conq[s] - 1);
+        if (st.conq[s] >= C.segundos) { st.fin = { ganador: s, t: st.t, causa: 'ciudades' }; return; }
+      }
+      if (st.t * DT >= DATOS.limite * 60) {
+        const a = st.urbes.filter(u => u.dueno > 0).length, b = st.urbes.filter(u => u.dueno < 0).length;
+        const dif = a !== b ? a - b : st.ter.cuenta[0] - st.ter.cuenta[1];
+        if (dif) { st.fin = { ganador: dif > 0 ? 0 : 1, t: st.t, causa: 'tiempo' }; return; }
+      }
+    }
+  }
+
+  function paso(st, ordenes) {
+    if (st.fin) return;
+    if (ordenes) for (const [s, o] of ordenes) aplicar(st, s, o);
+    st.t++;
+    for (let s = 0; s < 2; s++) {
+      const b = st.bases[s];
+      for (let c = 0; c < b.cola.length; c++) {
+        while (b.cola[c].length && b.cola[c][0].listo <= st.t) { const q = b.cola[c].shift(); lanzarDesde(st, s, q.ra, q.x, q.y, q.m, q.mis, q.ancla); }
+      }
+    }
+    indexar(st);
+    // El orden se invierte en cada paso para que nadie dispare siempre primero.
+    const us = st.units, adelante = st.t % 2 === 0;
+    for (let i = adelante ? 0 : us.length - 1; adelante ? i < us.length : i >= 0; i += adelante ? 1 : -1) {
+      const u = us[i];
+      if (u.dead) continue;
+      u.px = u.x; u.py = u.y;
+      if (u.r === TIERRA) pasoTierra(st, u); else pasoAire(st, u);
+    }
+    let n = 0;
+    for (let i = 0; i < st.units.length; i++) if (!st.units[i].dead) st.units[n++] = st.units[i];
+    st.units.length = n;
+    produccion(st);
+    if (st.god) for (const r of st.bases[0].ranuras) if (!r.full) { r.full = true; r.prep = false; r.lista = false; r.listo = st.t; }
+    if (st.t % 15 === 0) { terreno(st); ocupacion(st); reponerListas(st); }
+    if (st.t % DATOS.fortin.cadencia === 0) guarnicion(st);
+    if (st.t % 30 === 0 && st.rotos.length) {
+      const antes = st.rotos.length;
+      st.rotos = st.rotos.filter(k => { if (st.t >= st.roto[k]) { st.roto[k] = 0; return false; } return true; });
+      if (st.rotos.length !== antes) limpiarRutas(st);
+    }
+    if (st.t % 6 === 0) vision(st);
+    if (st.ev.length > 600) st.ev.splice(0, st.ev.length - 600);
+  }
+
+  // Vista con niebla: lo único que la IA (y el dibujo del jugador) puede leer
+  function stockDe(b) { return b.porClase.map(l => l.reduce((a, r) => a + (r.full ? 1 : 0), 0)); }
+  function vista(st, s) {
+    const T = st.ter, v = st.vis[s], e = 1 - s;
+    const propias = [], contactos = [];
+    for (const u of st.units) {
+      if (u.dead) continue;
+      if (u.s === s) propias.push(u);
+      else if (st.fin || (v[celdaDe(st, u.x, u.y)] && !u.oculto)) {
+        contactos.push(st.fin || u.idt ? u : { id: u.id, s: u.s, x: u.x, y: u.y, px: u.px, py: u.py, c: -1, r: -1, st: -1, tx: u.x, ty: u.y, gris: true });
+      }
+    }
+    const be = st.bases[e];
+    return {
+      s, t: st.t, W: st.W, H: st.H, cols: T.cols, rows: T.rows, size: T.size,
+      propias, contactos, base: st.bases[s], stock: stockDe(st.bases[s]),
+      celdas: st.mem[s], visibles: v, pasable: k => transitable(st, k),
+      fotos: [...st.fotos[s].values()], alertas: st.alertas[s],
+      ciudades: st.urbes.map(u => ({ x: u.x, y: u.y, n: u.celdas.length, dueno: st.fin ? u.dueno : duenoUrbe(u.celdas, k => st.mem[s][k]) })),
+      baseEnemiga: {
+        x: be.x, y: be.y,
+        ranuras: be.ranuras.map((r, i) => ({ x: r.x, y: r.y, c: r.c, full: !!st.memR[s][i], vista: !!v[celdaDe(st, r.x, r.y)] })),
+      },
+    };
+  }
+
+  // Avance automático por tierra
+  function frente(v, r, abanico) {
+    const b = v.base, e = v.baseEnemiga, mio = v.s === 0 ? 1 : -1;
+    const a = Math.atan2(e.y - b.y, e.x - b.x) + (r() - 0.5) * abanico;
+    let x = b.x, y = b.y;
+    for (let d = 60; d < 1400; d += v.size) {
+      const nx = b.x + Math.cos(a) * d, ny = b.y + Math.sin(a) * d;
+      if (nx < 0 || ny < 0 || nx >= v.W || ny >= v.H) break;
+      x = nx; y = ny;
+      const i = Math.floor(x / v.size) + Math.floor(y / v.size) * v.cols;
+      if (v.pasable(i) && v.celdas[i] !== mio) break;
+    }
+    return { x, y };
+  }
+  function autoTierra(v, r, intens, limite = 1) {
+    const o = [], e = v.baseEnemiga, mio = v.s === 0 ? 1 : -1, b = v.base;
+    const D = Math.hypot(e.x - b.x, e.y - b.y), ux = (e.x - b.x) / D, uy = (e.y - b.y) / D;
+    const dentro = p => ((p.x - b.x) * ux + (p.y - b.y) * uy) <= limite * D;
+    const ajenas = v.ciudades.filter(c => c.dueno !== mio);
+    const cercaDeBase = ajenas.slice().sort((p, q) => Math.hypot(p.x - b.x, p.y - b.y) - Math.hypot(q.x - b.x, q.y - b.y)).slice(0, 3);
+    const vis = v.contactos.filter(u => u.r === TIERRA);
+    for (const u of v.propias) {
+      if (u.r !== TIERRA || u.st !== QUIETO || u.mis === 'defender' || r() > 0.35) continue;
+      let dest = null;
+      let urbe = null, dU = DATOS.rUrbe;
+      for (const c of ajenas) { const d = Math.hypot(c.x - u.x, c.y - u.y); if (d < dU) { dU = d; urbe = c; } }
+      if (urbe && dU < 22) continue;
+      if (urbe) dest = { x: urbe.x + (r() - .5) * 24, y: urbe.y + (r() - .5) * 24 };
+      if (!dest && u.c === VEHICULO && vis.length) {
+        let md = 140 * 140;
+        for (const t of vis) {
+          const d = (t.x - u.x) ** 2 + (t.y - u.y) ** 2;
+          if (d < md) { md = d; dest = { x: t.x, y: t.y }; }
+        }
+      }
+      if (!dest) {
+        const base = Math.atan2(e.y - u.y, e.x - u.x);
+        for (let k = 0; k < 6 && !dest; k++) {
+          const a = base + (r() - 0.5) * 2.3, d = 30 + r() * 80;
+          const x = u.x + Math.cos(a) * d, y = u.y + Math.sin(a) * d;
+          if (x < 0 || y < 0 || x >= v.W || y >= v.H) continue;
+          const ci = Math.floor(x / v.size) + Math.floor(y / v.size) * v.cols;
+          if (v.pasable(ci) && v.celdas[ci] !== mio) dest = { x, y };
+        }
+        if (!dest) dest = { x: u.x + Math.cos(base) * 70, y: u.y + Math.sin(base) * 70 };
+      }
+      if (dentro(dest)) o.push({ t: 'mover', ids: [u.id], x: clamp(dest.x, 0, v.W), y: clamp(dest.y, 0, v.H) });
+    }
+    const liberar = (c, reserva, n) => {
+      const m = Math.min(n, v.stock[c] - reserva);
+      for (let i = 0; i < m; i++) { const obj = cercaDeBase.length && r() < 0.5 ? cercaDeBase[Math.floor(r() * cercaDeBase.length)] : null;
+        const p = obj ? { x: obj.x + (r() - .5) * 30, y: obj.y + (r() - .5) * 30 } : frente(v, r, 1.25);
+        if (dentro(p)) o.push({ t: 'lanzar', c, x: p.x, y: p.y }); }
+    };
+    liberar(PERSONAL, 12, Math.max(1, Math.round(2 * intens)));
+    liberar(VEHICULO, 2, r() < 0.5 * intens ? 1 : 0);
+    return o;
+  }
+
+  // IA: decide con la misma vista y las mismas órdenes que el jugador
+  const POSTURAS = {
+    equilibrada: { capDron: 3, capMisil: 3, capAvion: 2, golpe: 0.5, tierra: 1.0, reservaM: 6, reservaD: 12 },
+    aerea: { capDron: 4, capMisil: 2, capAvion: 1, golpe: 1.0, tierra: 0.7, reservaM: 3, reservaD: 6 },
+    terrestre: { capDron: 2, capMisil: 4, capAvion: 3, golpe: 0.25, tierra: 1.4, reservaM: 8, reservaD: 16 },
+  };
+  function iaCrear(seed, nombre) {
+    const r = mulberry(seed);
+    const claves = Object.keys(POSTURAS);
+    const n = nombre || claves[Math.floor(r() * claves.length)];
+    return { r, nombre: n, p: POSTURAS[n], proxGolpe: Math.round((50 + r() * 75) * 30), proxEspia: Math.round((30 + r() * 60) * 30), proxApoyo: Math.round((120 + r() * 60) * 30), proxBomba: Math.round((240 + r() * 120) * 30) };
+  }
+  function iaDecidir(ia, v) {
+    const o = [], r = ia.r, p = ia.p, s = v.stock;
+    const b = v.base, e = v.baseEnemiga;
+    const dx = e.x - b.x, dy = e.y - b.y, D = Math.hypot(dx, dy), ux = dx / D, uy = dy / D;
+    const punto = (d0, d1, lat) => {
+      const d = d0 + r() * (d1 - d0), l = (r() - 0.5) * lat;
+      return { x: clamp(b.x + ux * d - uy * l, 8, v.W - 8), y: clamp(b.y + uy * d + ux * l, 8, v.H - 8) };
+    };
+    const inter = [0, 0, 0];
+    for (const u of v.propias) if (u.r === INT && u.st !== REGRESO) inter[u.c]++;
+    const rapido = DATOS.dRef / DATOS.clases[AVION].cruce * 1.3;
+    const amenazas = v.contactos.filter(u => (u.c >= 0 && u.c <= MISIL && u.r === ATQ) || (u.gris && Math.hypot(u.x - u.px, u.y - u.py) / DT > rapido));
+    const enemigoC = v.s === 0 ? -1 : 1;
+    const fotoTropa = f => esSuelo(f.c) && v.t - f.t < 900 && v.celdas[Math.floor(f.x / v.size) + Math.floor(f.y / v.size) * v.cols] === enemigoC;
+    const tropas = v.contactos.filter(u => u.r === TIERRA).concat(v.fotos.filter(fotoTropa));
+    const lanza = (c, q) => o.push({ t: 'lanzar', c, x: q.x, y: q.y });
+
+    if (inter[DRON] < p.capDron && s[DRON] > p.reservaD) lanza(DRON, punto(190, 330, 300));
+    // Los misiles interceptores salen contra una amenaza concreta y solo si hay uno en alerta.
+    const misilListo = b.porClase[MISIL].some(q => q.full && q.lista && !q.prep);
+    if (misilListo && inter[MISIL] < p.capMisil && s[MISIL] > p.reservaM) {
+      let t = null, dm = 300;
+      for (const u of amenazas) { const d = Math.hypot(u.x - b.x, u.y - b.y); if (d < dm) { dm = d; t = u; } }
+      if (t) o.push({ t: 'lanzar', c: MISIL, x: t.x, y: t.y, mis: 'interceptar' });
+    }
+    if ((amenazas.length || r() < 0.08) && inter[AVION] < p.capAvion && s[AVION] > 3) lanza(AVION, punto(200, 330, 260));
+
+    // Fuego de respuesta: misiles entrantes obligan a usar el arsenal antes de perderlo.
+    const alertaNueva = v.alertas.some(a => v.t - a.t <= 90);
+    // Una alerta refuerza la patrulla; responder con todo el arsenal era tirarlo.
+    if (alertaNueva && s[AVION] > 3 && inter[AVION] <= p.capAvion) lanza(AVION, punto(170, 280, 220));
+    if (amenazas.some(u => (u.c === MISIL || u.gris) && Math.hypot(u.x - b.x, u.y - b.y) < 380) && r() < 0.35) {
+      const bl = e.ranuras.filter(q => q.full && (q.c === MISIL || q.c === AVION));
+      if (bl.length && s[MISIL] > p.reservaM) lanza(MISIL, bl[Math.floor(r() * bl.length)]);
+    }
+    const mision = (c, q, mis, ancla) => o.push({ t: 'lanzar', c, x: q.x, y: q.y, mis, ancla });
+    const noMias = v.ciudades.filter(c => c.dueno !== (v.s === 0 ? 1 : -1));
+    if (v.t >= ia.proxEspia) {
+      ia.proxEspia = v.t + Math.round((70 + r() * 70) * 30);
+      const gr = v.contactos.filter(u => u.gris);
+      if (gr.length >= 4 && s[ESPIA_A] > 0) mision(ESPIA_A, gr[Math.floor(r() * gr.length)], 'reconocer');
+      else if (noMias.length && s[ESPIA_D] > 0) mision(ESPIA_D, noMias[Math.floor(r() * noMias.length)], 'reconocer');
+    }
+    const suelo = v.propias.filter(u => u.r === TIERRA), id = v.contactos.filter(u => u.r === TIERRA);
+    if (v.t >= ia.proxApoyo) {
+      ia.proxApoyo = v.t + Math.round((50 + r() * 60) * 30);
+      let aliado = null, md = 140;
+      for (const a of suelo) for (const t of id) { const d = Math.hypot(a.x - t.x, a.y - t.y); if (d < md) { md = d; aliado = a; } }
+      if (aliado) {
+        if (s[AVION] > 3) mision(AVION, aliado, 'apoyo', aliado.id);
+        else if (s[DRON] > p.reservaD) mision(DRON, aliado, 'apoyo', aliado.id);
+      }
+    }
+    if (v.t >= ia.proxBomba) {
+      ia.proxBomba = v.t + Math.round((90 + r() * 90) * 30);
+      const enem = noMias.filter(c => suelo.filter(a => Math.hypot(a.x - c.x, a.y - c.y) < 200).length >= 4);
+      if (enem.length && s[AVION] > 3) mision(AVION, enem[Math.floor(r() * enem.length)], 'bombardear');
+    }
+    if (tropas.length) {
+      let mejor = null, mn = 0;
+      for (const t of tropas) {
+        let n = 0;
+        for (const w of tropas) if ((w.x - t.x) ** 2 + (w.y - t.y) ** 2 < 900) n++;
+        if (n > mn) { mn = n; mejor = t; }
+      }
+      if (mejor && mn >= (mejor.r === undefined ? 5 : 3) && r() < 0.5) {
+        if (mn >= 7 && s[MISIL] > p.reservaM) lanza(MISIL, mejor);
+        else if (s[AVION] > 3) lanza(AVION, mejor);
+        else if (s[DRON] > p.reservaD) lanza(DRON, mejor);
+      }
+    }
+    if (v.t >= ia.proxGolpe) {
+      ia.proxGolpe = v.t + Math.round((30 + r() * 55) * 30);
+      if (r() < p.golpe) {
+        const conocidas = e.ranuras.filter(q => q.full);
+        const blancos = conocidas.filter(q => q.c === MISIL || q.c === AVION);
+        const lista = blancos.length ? blancos : conocidas;
+        if (lista.length) {
+          const q = lista[Math.floor(r() * lista.length)];
+          const nd = Math.min(5, s[DRON] - p.reservaD);
+          for (let i = 0; i < nd; i++) lanza(DRON, { x: q.x + (r() - 0.5) * 24, y: q.y + (r() - 0.5) * 24 });
+          if (s[MISIL] > p.reservaM + 2) lanza(MISIL, q);
+          if (s[AVION] > 5) lanza(AVION, q);
+        }
+      }
+    }
+    // Preparar el asalto: castigar la guarnición cuando hay tropas propias cerca.
+    const cerca = v.propias.filter(u => u.r === TIERRA && Math.hypot(u.x - e.x, u.y - e.y) < 330).length;
+    if (cerca >= 8 && r() < 0.6) {
+      const g = e.ranuras.filter(q => q.full && esSuelo(q.c));
+      if (g.length) {
+        const q = g[Math.floor(r() * g.length)];
+        if (s[MISIL] > 0) lanza(MISIL, q); else if (s[AVION] > 0) lanza(AVION, q); else if (s[DRON] > 0) lanza(DRON, q);
+      }
+    }
+    // Apertura: los diez primeros minutos no cruza más allá del centro del mapa.
+    return o.concat(autoTierra(v, r, p.tierra * (v.t < 7200 ? 0.5 : 1), v.t < 18000 ? 0.55 : 1));
+  }
+
+  // Bucle de partida
+  function partida({ seed = 1, mapa = null, ia0 = null, ia1 = 'auto' } = {}) {
+    const st = crear({ seed, mapa });
+    const ias = [ia0, ia1].map((x, i) => {
+      if (!x) return null;
+      if (typeof x === 'function') return { fn: x };
+      return iaCrear((seed * 31 + i * 7919) | 0, x === 'auto' ? null : x);
+    });
+    return { st, ias, rAuto: mulberry((seed * 17 + 3) | 0) };
+  }
+  function avanzar(g, ordenes) {
+    const st = g.st;
+    const todas = ordenes ? ordenes.map(o => [0, o]) : [];
+    if (st.t % 90 === 0) {
+      const prim = (st.t / 90) % 2;
+      for (const s of [prim, 1 - prim]) {
+        const ia = g.ias[s];
+        if (ia) {
+          const v = vista(st, s);
+          for (const o of (ia.fn ? ia.fn(v) : iaDecidir(ia, v))) todas.push([s, o]);
+        } else if (st.auto[s]) {
+          for (const o of autoTierra(vista(st, s), g.rAuto, 1)) todas.push([s, o]);
+        }
+      }
+    }
+    paso(st, todas);
+  }
+
+  function hash(st) {
+    let h = 2166136261 >>> 0;
+    const m = n => { h = Math.imul(h ^ (n | 0), 16777619) >>> 0; };
+    m(st.t); m(st.sem); m(st.units.length);
+    for (const u of st.units) { m(u.id); m(u.c); m(u.r); m(Math.round(u.x * 100)); m(Math.round(u.y * 100)); }
+    for (const b of st.bases) for (const r of b.ranuras) m(r.full ? 1 : 0);
+    for (const c of st.ter.ctrl) m(Math.round(c * 1000));
+    return h;
+  }
+
+  return {
+    DT, AVION, DRON, MISIL, PERSONAL, VEHICULO, ATQ, INT, TIERRA, IDA, PATRULLA, REGRESO, MOVIL, QUIETO,
+    NOMBRES, DATOS, POSTURAS, listas, crear, paso, aplicar, vista, rolPara, sectorEn, celdaDe, dueno, stockDe,
+    autoTierra, iaCrear, iaDecidir, partida, avanzar, hash, mulberry, masCercano, indexar, terreno, vision, transitable, destinoValido, eta, satelites, admite, esSuelo, etaOrden, ESPIA_A, ESPIA_D, ESP, APOYO,
+  };
+})();
+if (typeof module !== 'undefined') module.exports = DOCTRINA;
+
+/* doctrina · RENDER, ENTRADA, AVISOS y SONIDO */
+(() => {
+  'use strict';
+  const S = DOCTRINA, A = ATLAS;
+  const $ = id => document.getElementById(id);
+  const cv = $('mapa'), ctx = cv.getContext('2d', { alpha: false });
+  const capa = document.createElement('canvas'), cc = capa.getContext('2d');
+  const capaEst = document.createElement('canvas'), ce = capaEst.getContext('2d');
+  const tok = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const VAR = ['--avion', '--dron', '--misil', '--personal', '--vehiculo', '--espia', '--espia'];
+  const COL = VAR.map(tok);
+  const NEGRO = tok('--negro'), HUESO = tok('--hueso'), GRIS = tok('--gris'), TENUE = tok('--tenue'), CONTACTO = tok('--contacto');
+  const MONO = tok('--mono');
+  const calma = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const TAU = Math.PI * 2;
+  const clampV = (v, a, b) => (v < a ? a : v > b ? b : v);
+  // Lenguaje del mapa, el mismo del atlas: número de puntos = terreno; ritmo = tipo de línea.
+  const GLIFO = { [A.LLANURA]: [[0, 0]], [A.BOSQUE]: [[-3.6, -3.6], [3.6, 3.6]], [A.MONTANA]: [[0, -5.2], [-4.6, 3.4], [4.6, 3.4]], [A.CIUDAD]: [[-4.4, -4.4], [4.4, -4.4], [-4.4, 4.4], [4.4, 4.4]] };
+  const ALFA = { [A.LLANURA]: .22, [A.BOSQUE]: .38, [A.MONTANA]: .6, [A.CIUDAD]: .55 };
+  const TALLA = { [A.LLANURA]: 1, [A.BOSQUE]: 1.05, [A.MONTANA]: 1.25, [A.CIUDAD]: 1.3 };
+  const RITMO = {
+    costa: { c: 3.6, m: [[0, .6]], col: tok('--t-costa') },
+    rio: { c: 3, m: [[0, .82]], col: tok('--t-rio') },
+    camino: { c: 12, m: [[0, .85], [3.4, .85]], col: tok('--t-camino') },
+    frontera: { c: 18, m: [[0, 1.4], [6, .7], [9, .7], [12, .7]], col: tok('--t-frontera') },
+  };
+
+  let menuAb = null, cantidad = 1, ultima = null;
+  let g, st, sel = null, corriendo = false, vel = 1, acum = 0, ult = performance.now();
+  let mapaActual = A.ejemplo(), iniciada = false, puentesUI = [];
+  let cw = 1, ch = 1, dpr = 1, sx = 1, sy = 1, s = 1, ox = 0, oy = 0, fp = 1, capaT = -1, gesto = null, cursor = null, cursorP = null, avisoHasta = 0, confirma = 0;
+  let trazos = new Map(), fx = [], generacion = 0, marca = null;
+  let seleccion = new Set(), grupos = {}, misiones = [], sigM = 1;
+  let vistos = new Map(), alarmados = new Set(), acu, marcas;
+  // Cámara: tres niveles de zoom, desplazamiento libre y una capa de terreno horneada alrededor de la vista.
+  let niveles = [1, 2, 3], nivel = 1, trans = null, horno = null, pinza = null, faros = [], flechas = [];
+  let miniT = -1, miniU = 0, miniCam = '', modoCaja = false, ruedaHasta = 0;
+  const teclas = new Set(), toques = new Map();
+
+  /* ---------- Sonido: síntesis en el navegador, sin archivos ---------- */
+  const Sonido = (() => {
+    let ac = null, salida = null, ruidoBuf = null, activo = true;
+    try { activo = localStorage.getItem('doctrina.sonido') !== '0'; } catch (_) { /* sin almacenamiento */ }
+    const ult = {}, HUECO = { ping: 1, alarma: 1.8, impacto: .12, tiro: .09, base: .4, fin: 0 };
+    function iniciar() {
+      try {
+        if (!ac) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return;
+          ac = new AC();
+          salida = ac.createGain(); salida.gain.value = .5; salida.connect(ac.destination);
+          ruidoBuf = ac.createBuffer(1, Math.floor(ac.sampleRate * .3), ac.sampleRate);
+          const d = ruidoBuf.getChannelData(0);
+          for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        }
+        if (ac.state === 'suspended') ac.resume().catch(() => {});
+      } catch (_) { ac = null; }
+    }
+    function tono(f0, f1, dur, tipo, vol, ret = 0) {
+      const t = ac.currentTime + ret, o = ac.createOscillator(), v = ac.createGain();
+      o.type = tipo; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+      v.gain.setValueAtTime(.0001, t); v.gain.exponentialRampToValueAtTime(vol, t + .006); v.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      o.connect(v); v.connect(salida); o.start(t); o.stop(t + dur + .02);
+    }
+    function ruido(dur, vol, corte) {
+      const t = ac.currentTime, s = ac.createBufferSource(), f = ac.createBiquadFilter(), v = ac.createGain();
+      s.buffer = ruidoBuf; f.type = 'lowpass'; f.frequency.value = corte;
+      v.gain.setValueAtTime(vol, t); v.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      s.connect(f); f.connect(v); v.connect(salida); s.start(t); s.stop(t + dur + .02);
+    }
+    const voces = {
+      ping: () => tono(1250, 850, .09, 'sine', .16),
+      alarma: () => { [880, 660, 880].forEach((f, i) => tono(f, f, .1, 'square', .07, i * .13)); },
+      impacto: () => ruido(.22, .3, 520),
+      tiro: () => tono(420, 240, .035, 'triangle', .05),
+      base: () => tono(130, 70, .22, 'sine', .32),
+      fin: gano => { (gano ? [392, 523, 659] : [392, 311, 233]).forEach((f, i) => tono(f, f * .99, .32, 'sine', .22, i * .2)); },
+    };
+    return {
+      iniciar,
+      get activo() { return activo; },
+      alternar() {
+        activo = !activo;
+        try { localStorage.setItem('doctrina.sonido', activo ? '1' : '0'); } catch (_) { /* sin almacenamiento */ }
+        return activo;
+      },
+      sonar(n, arg) {
+        if (!activo || !ac || ac.state !== 'running') return;
+        const t = ac.currentTime;
+        if (t - (ult[n] ?? -9) < HUECO[n]) return;
+        ult[n] = t;
+        try { voces[n](arg); } catch (_) { /* un sonido perdido no detiene el juego */ }
+      },
+    };
+  })();
+
+  /* ---------- Panel de clases ---------- */
+  const botones = S.NOMBRES.map((n, c) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.setAttribute('role', 'radio'); b.style.setProperty('--c', `var(${VAR[c]})`);
+    b.innerHTML = `<i></i><span>${n}</span><b>0</b><kbd>${c + 1}</kbd><small hidden></small>`;
+    b.addEventListener('click', e => { if (seleccion.size) filtrar(c); else seleccionar(c); if (e.detail) b.blur(); });
+    $('clases').appendChild(b);
+    return b;
+  });
+  // Elegir una clase filtra el menú; volver a elegirla quita el filtro.
+  function seleccionar(c) {
+    sel = sel === c ? null : c;
+    botones.forEach((b, i) => b.setAttribute('aria-checked', String(i === sel)));
+    if (menuAb) pintarMenu();
+  }
+
+  /* ---------- Selección ---------- */
+  const propiasMoviles = () => st.units.filter(u => !u.dead && u.s === 0 && u.c !== S.MISIL);
+  function fijarSeleccion(ids) { seleccion = new Set(ids); pintarSeleccion(); }
+  function limpiarSeleccion() { if (seleccion.size) fijarSeleccion([]); }
+  function filtrar(c) {
+    const q = propiasMoviles().filter(u => seleccion.has(u.id) && u.c === c).map(u => u.id);
+    if (q.length) fijarSeleccion(q); else aviso(`ningún ${S.NOMBRES[c]} en la selección`);
+  }
+  function seleccionarTodas() {
+    if (sel === S.MISIL) { aviso('los misiles no se reasignan'); return; }
+    const q = propiasMoviles().filter(u => sel === null || u.c === sel).map(u => u.id);
+    if (q.length) fijarSeleccion(q); else aviso(sel === null ? 'ninguna unidad desplegada' : `ningún ${S.NOMBRES[sel]} desplegado`);
+  }
+  function aplicarCaja(a, b, sumar) {
+    const x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x), y0 = Math.min(a.y, b.y), y1 = Math.max(a.y, b.y);
+    const q = propiasMoviles().filter(u => u.x >= x0 && u.x <= x1 && u.y >= y0 && u.y <= y1).map(u => u.id);
+    if (sumar) fijarSeleccion([...seleccion, ...q]); else fijarSeleccion(q);
+    if (!q.length && !sumar) aviso('ninguna unidad tuya en la caja', 1000);
+  }
+  function ordenarSeleccion(p) {
+    const us = propiasMoviles().filter(u => seleccion.has(u.id));
+    const clases = new Set(us.map(u => u.c)), m = crearMision(clases.size === 1 ? us[0].c : -1, 'mover');
+    m.n = us.length;
+    const previas = us.map(u => u.m);
+    if (us.length && S.aplicar(st, 0, { t: 'mover', ids: [...seleccion], x: p.x, y: p.y, m: m.id })) {
+      marca = { x: p.x, y: p.y, ms: performance.now() };
+      for (const id of previas) { const o = misiones.find(x => x.id === id); if (o) o.reasig++; }
+      tHud = 0;
+    } else { quitarMision(m); aviso('sin unidades que puedan recibir la orden'); }
+  }
+  function regresarSeleccion() {
+    if (!seleccion.size) return;
+    if (!S.aplicar(st, 0, { t: 'regresar', ids: [...seleccion] })) aviso('nada de aire que pueda volver');
+  }
+  function pintarSeleccion() {
+    const cuenta = COL.map(() => 0);
+    let total = 0;
+    for (const u of propiasMoviles()) if (seleccion.has(u.id)) { cuenta[u.c]++; total++; }
+    botones.forEach((b, c) => {
+      const k = b.querySelector('kbd');
+      k.textContent = seleccion.size ? (cuenta[c] || '') : String(c + 1);
+    });
+    $('seleccion').hidden = total === 0;
+    $('selN').textContent = `${total} ${total === 1 ? 'seleccionada' : 'seleccionadas'}`;
+    $('volver').hidden = !(cuenta[S.AVION] + cuenta[S.DRON] + cuenta[S.ESPIA_A] + cuenta[S.ESPIA_D]);
+    document.body.classList.toggle('con-seleccion', total > 0);
+  }
+  function podar() {
+    if (!seleccion.size) return;
+    const vivos = new Set(propiasMoviles().map(u => u.id));
+    let cambio = false;
+    for (const id of seleccion) if (!vivos.has(id)) { seleccion.delete(id); cambio = true; }
+    if (cambio || seleccion.size === 0) pintarSeleccion();
+  }
+
+  /* ---------- Partida ---------- */
+  function nueva() {
+    g = S.partida({ seed: (Date.now() ^ (Math.random() * 1e9)) | 0, mapa: mapaActual, ia1: 'auto' });
+    st = g.st; iniciada = false; acum = 0; vel = 1; gesto = null; horno = null; trans = null; faros = []; flechas = []; miniT = -1; nivel = 1;
+    puentesUI = st.mapa.der.centrosPuente.map(c => ({ x: c.x, y: c.y, celdas: st.puentes.filter(k => { const i = k % st.ter.cols, j = (k - i) / st.ter.cols; return Math.hypot((i + .5) * st.ter.size - c.x, (j + .5) * st.ter.size - c.y) < 26; }) })); trazos = new Map(); fx = []; capaT = -1; marca = null;
+    cerrarMenu(); seleccion = new Set(); grupos = {}; vistos = new Map(); alarmados = new Set(); misiones = []; sigM = 1;
+    acu = { pro: COL.map(() => 0), ene: COL.map(() => 0), base: 0, nuevos: 0, ident: COL.map(() => 0) };
+    marcas = { alertaT: -1, sat: {}, bajas: 0, contactos: 0, alarma: -999, terreno: 0, cuenta: st.ter.cuenta[0], ocupP: false, ocupE: false };
+    $('registro').textContent = '';
+    $('vel').textContent = '×1';
+    $('modo').setAttribute('aria-pressed', 'false');
+    $('final').hidden = true;
+    $('titulo').textContent = 'doctrina';
+    medir(); irABase(); pintarSeleccion(); hud();
+  }
+  function ponerEscala(v) { s = sx = sy = v; fp = clampV(v / 1.6, .72, 1.3); }
+  function medir() {
+    const cx = (cw / 2 - ox) / s, cy = (ch / 2 - oy) / s;
+    dpr = Math.min(devicePixelRatio || 1, 2);
+    cw = innerWidth; ch = innerHeight;
+    cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
+    // Nivel 0: todo el mapa. Nivel 1: la escala de trabajo. Nivel 2: de cerca.
+    const todo = Math.min(cw / st.W, ch / st.H), medio = ch > cw ? Math.max(todo * 2, .9) : todo * 2;
+    niveles = [todo, medio, medio * 1.75];
+    ponerEscala(niveles[nivel]);
+    trans = null; horno = null;
+    const mi = $('mini'), mw = mi.clientWidth || 200, mh = mi.clientHeight || 123;
+    mi.width = Math.round(mw * dpr); mi.height = Math.round(mh * dpr); miniT = -1;
+    centrar(cx, cy);
+  }
+  // El borde izquierdo admite más recorrido para que el minimapa no tape tu base.
+  function acotar(q) {
+    const izq = ($('mini').offsetWidth || 200) + 28, otros = 80, mw = st.W * q.s, mh = st.H * q.s;
+    q.ox = mw + izq + otros <= cw ? (cw - mw) / 2 : clampV(q.ox, cw - mw - otros, izq);
+    q.oy = mh + otros * 2 <= ch ? (ch - mh) / 2 : clampV(q.oy, ch - mh - otros, otros);
+    return q;
+  }
+  function moverCam(nx, ny) { const q = acotar({ s, ox: nx, oy: ny }); ox = q.ox; oy = q.oy; }
+  function centrar(x, y) { moverCam(cw / 2 - x * s, ch / 2 - y * s); }
+  function irABase() { const b = st.bases[0]; moverCam(cw * .3 - b.x * s, ch * .68 - b.y * s); }
+  function acabarTrans() { if (!trans) return; ponerEscala(trans.s1); ox = trans.ox1; oy = trans.oy1; trans = null; }
+  function cambiarNivel(d, ax = cw / 2, ay = ch / 2) {
+    acabarTrans();
+    const n = clampV(nivel + d, 0, niveles.length - 1);
+    if (n === nivel) return;
+    nivel = n;
+    const s1 = niveles[n], q = acotar({ s: s1, ox: ax - (ax - ox) * s1 / s, oy: ay - (ay - oy) * s1 / s });
+    if (calma) { ponerEscala(s1); ox = q.ox; oy = q.oy; return; }
+    trans = { s0: s, ox0: ox, oy0: oy, s1, ox1: q.ox, oy1: q.oy, t0: performance.now() };
+  }
+  function avanzarTrans(now) {
+    if (!trans) return;
+    const t = Math.min(1, (now - trans.t0) / 130), e = t * (2 - t);
+    if (t >= 1) { acabarTrans(); return; }
+    ponerEscala(trans.s0 + (trans.s1 - trans.s0) * e);
+    ox = trans.ox0 + (trans.ox1 - trans.ox0) * e; oy = trans.oy0 + (trans.oy1 - trans.oy0) * e;
+  }
+  const enMundo = c => c.setTransform(dpr, 0, 0, dpr, ox * dpr, oy * dpr);
+  const enPantalla = c => c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  addEventListener('resize', medir);
+  // ¿Se ve este punto de pantalla (ya transformado por X/Y)?
+  const enVista = (x, y, m = 30) => { const a = ox + x, b = oy + y; return a > -m && a < cw + m && b > -m && b < ch + m; };
+
+  const X = x => x * sx, Y = y => y * sy;
+  function mundo(e) {
+    return { x: clampV((e.clientX - ox) / s, 0, st.W), y: clampV((e.clientY - oy) / s, 0, st.H) };
+  }
+  const circulo = (p, x, y, r) => { p.moveTo(x + r, y); p.arc(x, y, r, 0, TAU); };
+  const rombo = (p, x, y, r) => { p.moveTo(x, y - r); p.lineTo(x + r, y); p.lineTo(x, y + r); p.lineTo(x - r, y); p.closePath(); };
+  const trazosClase = () => COL.map(() => new Path2D());
+
+  /* ---------- Dibujo ---------- */
+  function linea(c, p, r, h) {
+    const q = new Path2D();
+    A.muestrear(p, r.c, r.m, (x, y, rad) => { if (x >= h.x0 && x <= h.x1 && y >= h.y0 && y <= h.y1) circulo(q, X(x), Y(y), rad * fp); });
+    c.fillStyle = r.col; c.fill(q);
+  }
+  // El terreno se hornea en un lienzo algo mayor que la vista: desplazarse solo copia una imagen.
+  function hornear() {
+    const T = st.ter, n = T.cols * T.rows, mx = cw / s * .35, my = ch / s * .35;
+    const i0 = Math.max(0, Math.floor((-ox / s - mx) / T.size)), j0 = Math.max(0, Math.floor((-oy / s - my) / T.size));
+    const i1 = Math.min(T.cols, Math.ceil(((cw - ox) / s + mx) / T.size)), j1 = Math.min(T.rows, Math.ceil(((ch - oy) / s + my) / T.size));
+    const h = { s, i0, j0, i1, j1, x0: i0 * T.size, y0: j0 * T.size, x1: i1 * T.size, y1: j1 * T.size, cod: horno && horno.cod.length === n ? horno.cod : new Int8Array(n) };
+    h.w = (h.x1 - h.x0) * s; h.h = (h.y1 - h.y0) * s;
+    h.cod.fill(-1);
+    const wp = Math.ceil(h.w * dpr), hp = Math.ceil(h.h * dpr);
+    for (const c of [capa, capaEst]) if (c.width !== wp || c.height !== hp) { c.width = wp; c.height = hp; }
+    cc.setTransform(1, 0, 0, 1, 0, 0); cc.clearRect(0, 0, wp, hp);
+    ce.setTransform(1, 0, 0, 1, 0, 0); ce.clearRect(0, 0, wp, hp);
+    ce.setTransform(dpr, 0, 0, dpr, -h.x0 * s * dpr, -h.y0 * s * dpr);
+    for (const p of st.mapa.costas) linea(ce, p, RITMO.costa, h);
+    for (const t of ['rio', 'camino', 'frontera']) for (const l of st.mapa.lineas) if (l.t === t) linea(ce, l.p, RITMO[t], h);
+    horno = h;
+    actualizarCeldas();
+  }
+  // Solo se repinta la celda cuyo dueño conocido o visibilidad cambió.
+  function actualizarCeldas() {
+    const T = st.ter, fin = !!st.fin, vis = st.vis[0], mem = st.mem[0], areas = st.mapa.areas, h = horno, bs = h.s * dpr, lado = T.size * bs;
+    const lejos = h.s < 1.1, cubos = new Map(), rp = 1.2 * fp;
+    cc.setTransform(1, 0, 0, 1, 0, 0);
+    for (let j = h.j0; j < h.j1; j++) for (let i = h.i0; i < h.i1; i++) {
+      const k = i + j * T.cols, t = areas[k];
+      if (t === A.AGUA) continue;
+      const d = fin ? S.dueno(st, k) : mem[k], on = fin || vis[k] ? 1 : 0, cod = (d + 1) * 2 + on;
+      if (h.cod[k] === cod) continue;
+      if (h.cod[k] !== -1) cc.clearRect(Math.floor((i - h.i0) * lado) - 1, Math.floor((j - h.j0) * lado) - 1, Math.ceil(lado) + 2, Math.ceil(lado) + 2);
+      h.cod[k] = cod;
+      const c = d + '|' + t + '|' + on;
+      if (!cubos.has(c)) cubos.set(c, new Path2D());
+      const q = cubos.get(c), ta = TALLA[t], cx = (i + .5) * T.size, cy = (j + .5) * T.size, r = (d === 0 ? rp * .85 : d > 0 ? rp : rp * 1.1) * ta;
+      if (lejos) { q.rect(X(cx) - r, Y(cy) - r, r * 2, r * 2); continue; }
+      for (const [dx, dy] of GLIFO[t]) circulo(q, X(cx + dx), Y(cy + dy), r);
+    }
+    cc.setTransform(dpr, 0, 0, dpr, -h.x0 * h.s * dpr, -h.y0 * h.s * dpr);
+    cc.lineWidth = .85;
+    for (const [c, q] of cubos) {
+      const [d, t, on] = c.split('|').map(Number), tinta = d === 0 ? TENUE : GRIS;
+      cc.globalAlpha = ALFA[t] * (on ? 1 : .42);
+      if (d < 0) { cc.strokeStyle = tinta; cc.stroke(q); } else { cc.fillStyle = tinta; cc.fill(q); }
+    }
+    cc.globalAlpha = 1;
+    capaT = st.t - st.t % 6;
+  }
+  function hornoCubre() {
+    if (!horno) return false;
+    if (trans) return true;
+    if (horno.s !== s) return false;
+    const T = st.ter, x0 = -ox / s, y0 = -oy / s, x1 = (cw - ox) / s, y1 = (ch - oy) / s;
+    return (horno.x0 <= x0 || horno.i0 === 0) && (horno.y0 <= y0 || horno.j0 === 0) && (horno.x1 >= x1 || horno.i1 === T.cols) && (horno.y1 >= y1 || horno.j1 === T.rows);
+  }
+  function componer() {
+    // Solo se copia la parte visible: el lienzo horneado es mayor que la pantalla.
+    const k = s / horno.s, dx = ox + horno.x0 * s, dy = oy + horno.y0 * s, dw = horno.w * k, dh = horno.h * k;
+    const x0 = Math.max(0, dx), y0 = Math.max(0, dy), x1 = Math.min(cw, dx + dw), y1 = Math.min(ch, dy + dh);
+    if (x1 <= x0 || y1 <= y0) return;
+    const fx0 = capa.width / dw, fy0 = capa.height / dh, u = (x0 - dx) * fx0, v = (y0 - dy) * fy0, uw = (x1 - x0) * fx0, vh = (y1 - y0) * fy0;
+    ctx.drawImage(capa, u, v, uw, vh, x0, y0, x1 - x0, y1 - y0);
+    ctx.drawImage(capaEst, u, v, uw, vh, x0, y0, x1 - x0, y1 - y0);
+  }
+  function dibujarObjetivos(v) {
+    const fin = !!st.fin, sano = new Path2D(), roto = new Path2D();
+    for (const p of puentesUI) {
+      const x = X(p.x), y = Y(p.y);
+      if (!enVista(x, y)) continue;
+      if (p.celdas.some(k => (fin ? st.roto[k] : st.memRoto[0][k]))) { roto.moveTo(x - 3.6, y - 3.6); roto.lineTo(x + 3.6, y + 3.6); roto.moveTo(x + 3.6, y - 3.6); roto.lineTo(x - 3.6, y + 3.6); }
+      else circulo(sano, x, y, 3.6 * fp);
+    }
+    ctx.strokeStyle = HUESO; ctx.lineWidth = 1; ctx.stroke(sano); ctx.lineWidth = 1.3; ctx.stroke(roto);
+    // Las ciudades son objetivos: un cuadrado, forma que no usa ninguna unidad.
+    ctx.lineWidth = 1.5;
+    for (const c of v.ciudades) {
+      const L = Math.min(16, 8 + Math.sqrt(c.n) * 2) * fp, x = X(c.x) - L / 2, y = Y(c.y) - L / 2;
+      if (!enVista(x, y, 40)) continue;
+      if (c.dueno > 0) { ctx.fillStyle = HUESO; ctx.fillRect(x, y, L, L); }
+      else { ctx.strokeStyle = c.dueno < 0 ? HUESO : TENUE; ctx.strokeRect(x, y, L, L); }
+    }
+  }
+
+  function dibujarBases(v) {
+    const r = 2.8, rr = 3.9;
+    const b = st.bases[0], e = st.bases[1], fin = !!st.fin, rb = (S.DATOS.base.rZona + 20) * s;
+    if (enVista(X(b.x), Y(b.y), rb)) for (let c = 0; c < COL.length; c++) {
+      const solido = new Path2D(), rearme = new Path2D(), vacio = new Path2D(), lista = new Path2D();
+      for (const ra of b.porClase[c]) {
+        const x = X(ra.x), y = Y(ra.y);
+        if (!ra.full) vacio.rect(x - .7, y - .7, 1.4, 1.4);
+        else { circulo(ra.listo > st.t ? rearme : solido, x, y, r); if (ra.lista && !ra.prep) circulo(lista, x, y, r + 2.4); }
+      }
+      ctx.strokeStyle = COL[c]; ctx.lineWidth = 1; ctx.stroke(lista);
+      ctx.fillStyle = COL[c]; ctx.fill(solido);
+      ctx.globalAlpha = .4; ctx.fill(rearme); ctx.globalAlpha = 1;
+      ctx.fillStyle = TENUE; ctx.fill(vacio);
+    }
+    const on = trazosClase(), memo = trazosClase(), vacio = new Path2D();
+    if (enVista(X(e.x), Y(e.y), rb)) v.baseEnemiga.ranuras.forEach((ra, i) => {
+      const x = X(ra.x), y = Y(ra.y);
+      const full = fin ? e.ranuras[i].full : ra.full;
+      if (!full) { vacio.rect(x - .7, y - .7, 1.4, 1.4); return; }
+      rombo((fin || ra.vista ? on : memo)[ra.c], x, y, rr);
+    });
+    ctx.lineWidth = 1.1;
+    for (let c = 0; c < COL.length; c++) {
+      ctx.strokeStyle = COL[c];
+      ctx.stroke(on[c]);
+      ctx.globalAlpha = .38; ctx.stroke(memo[c]); ctx.globalAlpha = 1;
+    }
+    ctx.fillStyle = TENUE; ctx.fill(vacio);
+
+    if (!seleccion.size && sel !== null) {
+      const s = b.sectores[sel], R = S.DATOS.base.rFin + 11;
+      ctx.strokeStyle = COL[sel]; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.ellipse(X(b.x), Y(b.y), R * sx, R * sy, 0, -s.a1, -s.a0); ctx.stroke();
+    }
+
+    const rz = S.DATOS.base.rZona + 8, seg = S.DATOS.ocupacion.segundos;
+    for (const [q, gir] of [[b, 0], [e, Math.PI]]) {
+      if (q.ocup <= 0) continue;
+      const a0 = gir - Math.PI / 2;
+      ctx.strokeStyle = HUESO; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.ellipse(X(q.x), Y(q.y), rz * sx, rz * sy, 0, a0, a0 + Math.PI / 2 * Math.min(1, q.ocup / seg)); ctx.stroke();
+    }
+  }
+
+  function dibujarUnidades(v, a) {
+    const todos = v.propias.concat(v.contactos);
+    generacion++;
+    ctx.lineWidth = .8;
+    for (const u of todos) {
+      const x = u.px + (u.x - u.px) * a, y = u.py + (u.y - u.py) * a;
+      if ((u.r === S.INT || u.r === S.ESP || u.r === S.APOYO) && u.st !== S.REGRESO) {
+        const R = u.r === S.INT ? S.DATOS.clases[u.c].int.rango : u.r === S.ESP ? S.DATOS.clases[u.c].idr : S.DATOS.apoyo.rango;
+        if (enVista(X(u.tx), Y(u.ty), R * s + 4)) {
+          ctx.strokeStyle = COL[u.c]; ctx.globalAlpha = .16;
+          ctx.beginPath(); ctx.ellipse(X(u.tx), Y(u.ty), R * sx, R * sy, 0, 0, TAU); ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+      }
+      if (u.r === S.ATQ) {
+        let tr = trazos.get(u.id);
+        if (!tr) { tr = { p: [], g: 0 }; trazos.set(u.id, tr); }
+        tr.g = generacion;
+        const ul = tr.p[tr.p.length - 1];
+        if (!ul || Math.hypot(ul.x - x, ul.y - y) >= 5) { tr.p.push({ x, y }); if (tr.p.length > 16) tr.p.shift(); }
+        if (u.st !== S.REGRESO && enVista(X(x), Y(y), 90)) {
+          ctx.fillStyle = COL[u.c];
+          tr.p.forEach((p, i) => { ctx.globalAlpha = (i + 1) / tr.p.length * .45; ctx.fillRect(X(p.x) - .7, Y(p.y) - .7, 1.4, 1.4); });
+          ctx.globalAlpha = 1;
+        }
+      }
+    }
+    for (const [k, tr] of trazos) if (tr.g !== generacion) trazos.delete(k);
+
+    const pro = trazosClase(), ene = trazosClase(), grises = new Path2D(), centros = new Path2D(), anillos = new Path2D(), zonas = new Path2D();
+    for (const u of todos) {
+      const x = X(u.px + (u.x - u.px) * a), y = Y(u.py + (u.y - u.py) * a);
+      if (!enVista(x, y, 80)) continue;
+      if (u.gris) { rombo(grises, x, y, 4.6); centros.rect(x - .8, y - .8, 1.6, 1.6); continue; }
+      const aire = u.r !== S.TIERRA;
+      if (u.s === 0) {
+        circulo(pro[u.c], x, y, aire ? 3.2 : 2.6);
+        if (seleccion.has(u.id)) {
+          circulo(anillos, x, y, 6.5);
+          const inf = S.DATOS.clases[u.c].inf;
+          if (inf) circulo(zonas, x, y, inf * s);
+        }
+      } else rombo(ene[u.c], x, y, aire ? 4.6 : 4);
+    }
+    ctx.lineWidth = 1.2;
+    for (let c = 0; c < COL.length; c++) { ctx.fillStyle = COL[c]; ctx.fill(pro[c]); ctx.strokeStyle = COL[c]; ctx.stroke(ene[c]); }
+    ctx.strokeStyle = CONTACTO; ctx.stroke(grises); ctx.fillStyle = CONTACTO; ctx.fill(centros);
+    ctx.strokeStyle = HUESO; ctx.lineWidth = .9; ctx.stroke(anillos);
+    ctx.globalAlpha = .22; ctx.lineWidth = .8; ctx.stroke(zonas); ctx.globalAlpha = 1;
+  }
+
+  function dibujarFotos(v) {
+    const vivos = new Set(v.contactos.map(u => u.id));
+    ctx.lineWidth = 1;
+    for (const f of v.fotos) {
+      if (vivos.has(f.id)) continue;
+      const a = clampV((f.vence - st.t) / (f.vence - f.t), 0, 1);
+      const p = new Path2D(), x = X(f.x), y = Y(f.y);
+      if (!enVista(x, y)) continue;
+      rombo(p, x, y, 4);
+      ctx.globalAlpha = .12 + a * .55;
+      ctx.strokeStyle = f.c >= 0 ? COL[f.c] : CONTACTO; ctx.stroke(p);
+      if (f.c < 0) { ctx.fillStyle = CONTACTO; ctx.fillRect(x - .7, y - .7, 1.4, 1.4); }
+    }
+    ctx.globalAlpha = 1;
+  }
+  function dibujarSatelites() {
+    const L = st.W + st.H, activos = S.satelites(st, 0).filter(q => q.activo), vida = S.DATOS.alerta.vida;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, 0, st.W * s, st.H * s); ctx.clip();
+    ctx.strokeStyle = HUESO; ctx.lineWidth = .8; ctx.setLineDash([1, 7]);
+    for (const q of activos) {
+      const px = -q.uy, py = q.ux;
+      ctx.globalAlpha = .5;
+      for (const d of [-q.ancho / 2, q.ancho / 2]) {
+        const cx = q.ux * (q.c + d), cy = q.uy * (q.c + d);
+        ctx.beginPath(); ctx.moveTo(X(cx - px * L), Y(cy - py * L)); ctx.lineTo(X(cx + px * L), Y(cy + py * L)); ctx.stroke();
+      }
+    }
+    ctx.setLineDash([2, 5]);
+    for (const a of st.alertas[0]) {
+      const t = (st.t - a.t) * S.DT / vida;
+      ctx.globalAlpha = Math.max(0, 1 - t);
+      ctx.strokeStyle = COL[S.MISIL]; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(X(a.x), Y(a.y)); ctx.lineTo(X(a.x + a.ux * 280), Y(a.y + a.uy * 280)); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.lineWidth = 1.4;
+    for (const a of st.alertas[0]) {
+      const t = (st.t - a.t) * S.DT / vida, x = X(a.x), y = Y(a.y);
+      if (!enVista(x, y)) continue;
+      ctx.globalAlpha = Math.max(0, 1 - t);
+      ctx.beginPath(); ctx.moveTo(x - 6, y - 6); ctx.lineTo(x + 6, y + 6); ctx.moveTo(x + 6, y - 6); ctx.lineTo(x - 6, y + 6); ctx.stroke();
+    }
+    ctx.restore();
+    for (const q of activos) {
+      const tp = -q.uy * (cw / 2 - ox) / s + q.ux * (ch / 2 - oy) / s;
+      etiqueta(X(q.ux * q.c - q.uy * tp), Y(q.uy * q.c + q.ux * tp), `satélite ${q.nombre}`);
+    }
+  }
+
+  // Órdenes en alistamiento: reloj en la ranura, línea hasta el destino y segundos que faltan.
+  const faltan = q => Math.max(1, Math.ceil((q.listo - st.t) * S.DT));
+  function dibujarOrdenes() {
+    const b = st.bases[0];
+    for (let c = 0; c < COL.length; c++) {
+      const cola = b.cola[c], total = S.DATOS.clases[c].alistar / S.DT;
+      if (!cola.length) continue;
+      ctx.strokeStyle = COL[c];
+      cola.forEach(q => {
+        const x = X(q.ra.x), y = Y(q.ra.y), tx = X(q.x), ty = Y(q.y);
+        const p = clampV(1 - (q.listo - st.t) / total, 0, 1);
+        ctx.lineWidth = 1.4; ctx.globalAlpha = 1;
+        ctx.beginPath(); ctx.arc(x, y, 5.6, -Math.PI / 2, -Math.PI / 2 + TAU * Math.max(.04, p)); ctx.stroke();
+        ctx.lineWidth = .8; ctx.globalAlpha = .4; ctx.setLineDash([1, 5]);
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(tx, ty); ctx.stroke();
+        ctx.setLineDash([]); ctx.globalAlpha = .9; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(tx - 4, ty); ctx.lineTo(tx + 4, ty); ctx.moveTo(tx, ty - 4); ctx.lineTo(tx, ty + 4); ctx.stroke();
+        ctx.globalAlpha = 1;
+      });
+      etiqueta(X(cola[0].x), Y(cola[0].y), `${S.NOMBRES[c]} · sale en ${faltan(cola[0])} s`);
+    }
+  }
+
+  function anotar(e) {
+    if (st.fin) return;
+    if (e.k === 'tiro') Sonido.sonar('tiro');
+    else if (e.k === 'golpe') Sonido.sonar('impacto');
+    else if (e.k === 'puente') { registrar('puente destruido', true, e); faro(e.x, e.y, 'puente'); Sonido.sonar('impacto'); }
+    else if (e.s === 0) {
+      if (e.ra) { acu.base++; Sonido.sonar('base'); } else { acu.pro[e.c]++; acu.lugar = { x: e.x, y: e.y }; }
+    } else acu.ene[e.c]++;
+  }
+  function dibujarEfectos() {
+    const vis = st.vis[0], fin = !!st.fin;
+    for (const e of st.ev) {
+      if (e.k === 'baja' && e.s === 0 && e.m) { const m = misiones.find(x => x.id === e.m); if (m) m.perdidas++; }
+      if (fin || vis[S.celdaDe(st, e.x, e.y)]) { fx.push(e); anotar(e); }
+    }
+    st.ev.length = 0;
+    if (fx.length > 500) fx.splice(0, fx.length - 500);
+    const nuevos = [];
+    for (const e of fx) {
+      const t = (st.t - e.t) * S.DT;
+      if (t > 1) continue;
+      if (!enVista(X(e.x), Y(e.y), 60)) { nuevos.push(e); continue; }
+      if (e.k === 'puente') {
+        if (t > .8) continue;
+        ctx.strokeStyle = HUESO; ctx.globalAlpha = 1 - t / .8; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(X(e.x), Y(e.y), 4 + (calma ? 8 : t * 26), 0, TAU); ctx.stroke();
+      } else if (e.k === 'tiro') {
+        if (t > .16) continue;
+        ctx.strokeStyle = COL[e.c]; ctx.globalAlpha = .75 * (1 - t / .16); ctx.lineWidth = .8;
+        ctx.beginPath(); ctx.moveTo(X(e.x), Y(e.y)); ctx.lineTo(X(e.x2), Y(e.y2)); ctx.stroke();
+      } else if (e.k === 'golpe') {
+        if (t > .6) continue;
+        ctx.fillStyle = HUESO; ctx.globalAlpha = 1 - t / .6;
+        const n = calma ? 0 : 14;
+        for (let i = 0; i < n; i++) {
+          const a = i / n * TAU + e.x, R = e.r * (.35 + 1.1 * t / .6);
+          ctx.fillRect(X(e.x + Math.cos(a) * R) - .8, Y(e.y + Math.sin(a) * R) - .8, 1.6, 1.6);
+        }
+        if (calma) { ctx.fillRect(X(e.x) - 2, Y(e.y) - 2, 4, 4); }
+      } else {
+        if (t > .5) continue;
+        ctx.strokeStyle = COL[e.c]; ctx.globalAlpha = 1 - t / .5; ctx.lineWidth = .9;
+        ctx.beginPath(); ctx.arc(X(e.x), Y(e.y), 2.5 + (calma ? 0 : t * 16), 0, TAU); ctx.stroke();
+      }
+      nuevos.push(e);
+    }
+    fx = nuevos;
+    ctx.globalAlpha = 1;
+  }
+
+  function etiqueta(x, y, t) {
+    enPantalla(ctx);
+    ctx.font = `11px ${MONO}`;
+    const sxp = ox + x, syp = oy + y;
+    if (sxp < -10 || sxp > cw + 10 || syp < -10 || syp > ch + 10) { enMundo(ctx); return; }
+    const m = ctx.measureText(t).width, px = Math.min(sxp + 12, cw - m - 6), py = Math.max(syp - 10, 12);
+    ctx.fillStyle = NEGRO; ctx.globalAlpha = .75; ctx.fillRect(px - 3, py - 10, m + 6, 14); ctx.globalAlpha = 1;
+    ctx.fillStyle = HUESO; ctx.fillText(t, px, py);
+    enMundo(ctx);
+  }
+  function dibujarCursor() {
+    if (st.fin || !$('parte').hidden) return;
+    if (marca) {
+      const t = (performance.now() - marca.ms) / 350;
+      if (t >= 1) marca = null;
+      else {
+        ctx.strokeStyle = HUESO; ctx.lineWidth = 1; ctx.globalAlpha = 1 - t;
+        ctx.beginPath(); ctx.arc(X(marca.x), Y(marca.y), 4 + (calma ? 6 : t * 16), 0, TAU); ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+    }
+    if (menuAb) {
+      const x = X(menuAb.p.x), y = Y(menuAb.p.y);
+      ctx.strokeStyle = HUESO; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x - 7, y); ctx.lineTo(x + 7, y); ctx.moveTo(x, y - 7); ctx.lineTo(x, y + 7); ctx.stroke();
+      return;
+    }
+    if (gesto && gesto.modo === 'caja') {
+      const a = gesto.w0, b = gesto.w;
+      const x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x), y0 = Math.min(a.y, b.y), y1 = Math.max(a.y, b.y);
+      const n = propiasMoviles().filter(u => u.x >= x0 && u.x <= x1 && u.y >= y0 && u.y <= y1).length;
+      ctx.strokeStyle = HUESO; ctx.lineWidth = 1; ctx.globalAlpha = .8; ctx.setLineDash([3, 4]);
+      ctx.strokeRect(X(x0), Y(y0), X(x1) - X(x0), Y(y1) - Y(y0));
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+      etiqueta(X(b.x), Y(b.y), `selección ${n}`);
+      return;
+    }
+    const p = cursor;
+    if (!p) return;
+    const c = S.sectorEn(st.bases[0], p.x, p.y);
+    if (c >= 0 && !leerLugar(p).cont) { etiqueta(X(p.x), Y(p.y), sel === c ? `quitar filtro ${S.NOMBRES[c]}` : `filtrar ${S.NOMBRES[c]}`); return; }
+    const l = leerLugar(p);
+    if (l.especial) etiqueta(X(p.x), Y(p.y), l.titulo);
+  }
+
+  // Flechas en el borde hacia lo que pasa fuera de la vista. Un clic lleva allí.
+  function faro(x, y, tipo, id) {
+    const previo = faros.find(f => (id && f.id === id) || (!id && f.tipo === tipo && Math.hypot(f.x - x, f.y - y) < 50));
+    const vence = st.t + 30 * 20;
+    if (previo) { previo.x = x; previo.y = y; previo.vence = vence; previo.n = st.t; return; }
+    faros.push({ x, y, tipo, id, vence, n: st.t });
+    if (faros.length > 24) faros.shift();
+  }
+  function ultimoFaro() { let m = null; for (const f of faros) if (f.vence > st.t && (!m || f.n > m.n)) m = f; return m; }
+  function dibujarFlechas() {
+    flechas = [];
+    const ins = 26, cx = cw / 2, cy = ch / 2, pulso = calma ? 1 : .65 + .35 * Math.sin(performance.now() / 180);
+    ctx.lineWidth = 1.8;
+    for (let k = faros.length - 1; k >= 0; k--) {
+      const f = faros[k];
+      if (f.vence <= st.t) continue;
+      const px = ox + f.x * s, py = oy + f.y * s;
+      if (px > 0 && px < cw && py > 0 && py < ch) continue;
+      const dx = px - cx, dy = py - cy;
+      const t = Math.min(dx ? ((dx > 0 ? cw - ins : ins) - cx) / dx : 1e9, dy ? ((dy > 0 ? ch - ins : ins + 34) - cy) / dy : 1e9);
+      const x = cx + dx * t, y = cy + dy * t;
+      if (flechas.some(q => Math.hypot(q.x - x, q.y - y) < 40)) continue;
+      flechas.push({ x, y, f });
+      const a = Math.atan2(dy, dx), c = Math.cos(a), n = Math.sin(a);
+      ctx.strokeStyle = f.tipo === 'misil' ? COL[S.MISIL] : HUESO;
+      ctx.globalAlpha = pulso;
+      ctx.beginPath();
+      ctx.moveTo(x - 9 * c - 7 * n, y - 9 * n + 7 * c); ctx.lineTo(x + 3 * c, y + 3 * n); ctx.lineTo(x - 9 * c + 7 * n, y - 9 * n - 7 * c);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    cv.classList.toggle('sobre-flecha', !!cursorP && flechas.some(q => Math.hypot(q.x - cursorP.x, q.y - cursorP.y) < 20));
+  }
+
+  /* ---------- Minimapa ---------- */
+  const miniTerreno = document.createElement('canvas'), mtc = miniTerreno.getContext('2d');
+  function pintarMini(v, now) {
+    const cam = `${ox | 0},${oy | 0},${s.toFixed(3)}`;
+    if (now - miniU < 150 && cam === miniCam) return;
+    miniU = now; miniCam = cam;
+    const mi = $('mini'), mc = mi.getContext('2d', { alpha: false }), T = st.ter, W = mi.clientWidth, H = mi.clientHeight, k = W / st.W;
+    if (miniT < 0 || st.t - miniT >= 30) {
+      miniT = st.t;
+      if (miniTerreno.width !== T.cols) { miniTerreno.width = T.cols; miniTerreno.height = T.rows; }
+      const im = mtc.createImageData(T.cols, T.rows), mem = st.mem[0], areas = st.mapa.areas;
+      for (let n = 0; n < mem.length; n++) {
+        const g = areas[n] === A.AGUA ? 0 : mem[n] > 0 ? 92 : mem[n] < 0 ? 46 : 26;
+        im.data[n * 4] = g; im.data[n * 4 + 1] = g; im.data[n * 4 + 2] = g * .95; im.data[n * 4 + 3] = 255;
+      }
+      mtc.putImageData(im, 0, 0);
+    }
+    mc.setTransform(dpr, 0, 0, dpr, 0, 0);
+    mc.imageSmoothingEnabled = false;
+    mc.drawImage(miniTerreno, 0, 0, W, H);
+    for (const c of v.ciudades) {
+      const x = c.x * k - 2, y = c.y * k - 2;
+      if (c.dueno > 0) { mc.fillStyle = HUESO; mc.fillRect(x, y, 4, 4); }
+      else { mc.strokeStyle = c.dueno < 0 ? HUESO : GRIS; mc.lineWidth = 1; mc.strokeRect(x + .5, y + .5, 3, 3); }
+    }
+    for (const u of v.propias) { mc.fillStyle = COL[u.c]; mc.fillRect(u.x * k - 1, u.y * k - 1, 2, 2); }
+    mc.lineWidth = 1;
+    for (const u of v.contactos) {
+      mc.strokeStyle = u.gris ? CONTACTO : COL[u.c];
+      mc.strokeRect(Math.round(u.x * k) - 1.5, Math.round(u.y * k) - 1.5, 3, 3);
+    }
+    for (const f of faros) if (f.vence > st.t) {
+      mc.strokeStyle = f.tipo === 'misil' ? COL[S.MISIL] : HUESO;
+      mc.beginPath(); mc.arc(f.x * k, f.y * k, 5, 0, TAU); mc.stroke();
+    }
+    mc.strokeStyle = HUESO; mc.lineWidth = 1;
+    mc.strokeRect(Math.round(-ox / s * k) + .5, Math.round(-oy / s * k) + .5, Math.max(4, Math.round(cw / s * k) - 1), Math.max(4, Math.round(ch / s * k) - 1));
+  }
+  function miniA(e) {
+    const r = $('mini').getBoundingClientRect();
+    centrar(clampV((e.clientX - r.left) / r.width, 0, 1) * st.W, clampV((e.clientY - r.top) / r.height, 0, 1) * st.H);
+  }
+  (function prepararMini() {
+    const mi = $('mini');
+    let activo = false;
+    mi.addEventListener('pointerdown', e => {
+      if (st.fin || !$('parte').hidden) return;
+      if (menuAb) cerrarMenu();
+      activo = true; acabarTrans(); miniA(e);
+      try { mi.setPointerCapture(e.pointerId); } catch (_) { /* puntero ya liberado */ }
+    });
+    mi.addEventListener('pointermove', e => { if (activo) miniA(e); });
+    const fin = () => { activo = false; };
+    mi.addEventListener('pointerup', fin); mi.addEventListener('pointercancel', fin);
+  })();
+
+  function dibujar(a, now) {
+    enPantalla(ctx);
+    ctx.fillStyle = NEGRO; ctx.fillRect(0, 0, cw, ch);
+    if (!hornoCubre()) hornear();
+    else if (capaT !== st.t - st.t % 6) actualizarCeldas();
+    componer();
+    enMundo(ctx);
+    const v = S.vista(st, 0);
+    dibujarObjetivos(v);
+    dibujarBases(v);
+    dibujarFotos(v);
+    dibujarUnidades(v, a);
+    dibujarEfectos();
+    dibujarSatelites();
+    dibujarOrdenes();
+    dibujarCursor();
+    enPantalla(ctx);
+    dibujarFlechas();
+    pintarMini(v, now);
+  }
+
+  /* ---------- Entrada ---------- */
+  /* ---------- Menú de acciones ---------- */
+  const QTY = [1, 3, 5, 10];
+  function leerLugar(p) {
+    const v = S.vista(st, 0), k = S.celdaDe(st, p.x, p.y), der = st.mapa.der, d = v.celdas[k];
+    const cerca = (lista, r) => { let m = null, md = r; for (const o of lista) { const h = Math.hypot(o.x - p.x, o.y - p.y); if (h <= md) { md = h; m = o; } } return m; };
+    const agua = !S.transitable(st, k);
+    const baseE = Math.hypot(p.x - st.bases[1].x, p.y - st.bases[1].y) <= S.DATOS.base.rZona;
+    const baseP = Math.hypot(p.x - st.bases[0].x, p.y - st.bases[0].y) <= S.DATOS.base.rZona;
+    const lejos = clampV(1.6 / s, 1, 2.6), urbe = cerca(v.ciudades, 24 * lejos), puente = cerca(puentesUI, 16 * lejos), cont = cerca(v.contactos, 18 * lejos);
+    const aliT = cerca(v.propias.filter(u => u.r === S.TIERRA), 34);
+    const aliA = cerca(v.propias.filter(u => u.c === S.AVION && u.st !== S.REGRESO), 16);
+    const propio = d === 1, enemigo = d === -1 || baseE, gris = !!(cont && cont.gris);
+    const tropa = !!(cont && !cont.gris && cont.r === S.TIERRA), aireE = !!(cont && !cont.gris && cont.r !== S.TIERRA);
+    const ciudadE = !!(urbe && urbe.dueno !== 1), ciudadP = !!(urbe && urbe.dueno === 1);
+    const puenteE = !!(puente && d === -1);
+    const nE = v.contactos.filter(u => Math.hypot(u.x - p.x, u.y - p.y) <= 60).length;
+    const nP = v.propias.filter(u => u.r === S.TIERRA && Math.hypot(u.x - p.x, u.y - p.y) <= 60).length;
+    const titulo = baseE ? 'Base enemiga' : baseP ? 'Tu base' : gris ? 'Contacto sin identificar' : tropa ? `${S.NOMBRES[cont.c]} enemigo` : aireE ? `${S.NOMBRES[cont.c]} enemigo` : urbe ? (urbe.dueno === 1 ? 'Ciudad tuya' : urbe.dueno === -1 ? 'Ciudad enemiga' : 'Ciudad en disputa') : puente ? (puenteE ? 'Puente enemigo' : 'Puente') : agua ? 'Agua' : propio ? 'Territorio propio' : enemigo ? 'Territorio enemigo' : 'Territorio en disputa';
+    const presencia = nE && nP ? `en combate: ${nE} enemigos, ${nP} tuyas` : nE ? `ocupado: ${nE} ${nE === 1 ? 'enemigo' : 'enemigos'} a la vista` : nP ? `${nP} ${nP === 1 ? 'unidad tuya' : 'unidades tuyas'}` : 'libre a la vista';
+    return { p, v, agua, baseE, baseP, urbe, puente, cont, gris, tropa, aireE, aliT, aliA, propio, enemigo, ciudadE, ciudadP, puenteE, titulo, presencia, especial: !!(baseE || gris || tropa || aireE || urbe || puente) };
+  }
+  function accionesDe(l) {
+    const P = S.PERSONAL, V = S.VEHICULO, AV = S.AVION, D = S.DRON, M = S.MISIL, a = [];
+    const blanco = l.enemigo || l.ciudadE || l.baseE || l.tropa;
+    const sinId = l.gris && !l.enemigo;
+    if (!l.agua && (!l.propio || l.ciudadE)) a.push({ id: 'tomar', n: l.baseE ? 'Asaltar la base' : l.urbe ? 'Tomar la ciudad' : 'Tomar', mis: 'tomar', prov: [P, V] });
+    if (!l.agua && l.propio && !l.ciudadE) a.push({ id: 'defender', n: l.ciudadP ? 'Defender la ciudad' : 'Defender', mis: 'defender', prov: [P, V] });
+    if (blanco || sinId) a.push({ id: 'atacar', n: l.puenteE ? 'Destruir el puente' : l.tropa ? 'Atacar la tropa' : 'Atacar', mis: 'atacar', prov: [M, AV, D], off: sinId ? 'sin identificar' : '' });
+    if ((blanco && !l.puenteE) || sinId) a.push({ id: 'bombardear', n: 'Bombardear', mis: 'bombardear', prov: [AV], off: sinId ? 'sin identificar' : '' });
+    if (l.aliT) a.push({ id: 'apoyo', n: 'Apoyo aéreo', mis: 'apoyo', prov: [AV, D], ancla: l.aliT.id });
+    if (l.aliA) a.push({ id: 'escolta', n: 'Escoltar', mis: 'escolta', prov: [AV], ancla: l.aliA.id });
+    if (l.gris || l.aireE) a.push({ id: 'interceptar', n: 'Interceptar', mis: 'interceptar', prov: [AV, D, M] });
+    else a.push({ id: 'patrullar', n: 'Patrullar', mis: 'patrullar', prov: [AV, D] });
+    a.push({ id: 'reconocer', n: l.gris ? 'Identificar' : l.propio ? 'Vigilar' : 'Reconocer', mis: 'reconocer', prov: [S.ESPIA_A, S.ESPIA_D] });
+    return a.slice(0, 5);
+  }
+  function filasDelMenu() {
+    const { l } = menuAb, b = st.bases[0], filas = [], acciones = accionesDe(l);
+    if (seleccion.size) {
+      const us = propiasMoviles().filter(u => seleccion.has(u.id));
+      for (const a of acciones) {
+        const ids = us.filter(u => S.admite(u.c, a.mis)).map(u => u.id);
+        if (ids.length) filas.push({ a, ids, ok: !a.off, motivo: a.off || '', txt: `${ids.length} ${ids.length === 1 ? 'unidad' : 'unidades'}` });
+      }
+      return filas;
+    }
+    for (const a of acciones) for (const c of a.prov) {
+      if (sel !== null && c !== sel) continue;
+      const hay = S.listas(b, c, st.t), eta = S.etaOrden(st, 0, c, l.p.x, l.p.y);
+      // Interceptar con un misil solo tiene sentido con uno en alerta: alistar otro tarda más que el blanco en irse.
+      const alerta = b.porClase[c].some(r => r.full && r.lista && !r.prep);
+      const motivo = a.off || (!hay ? 'sin reserva' : a.id === 'interceptar' && c === S.MISIL && !alerta ? 'ninguno en alerta' : Number.isFinite(eta) ? '' : 'sin ruta');
+      filas.push({ a, c, ok: !motivo, motivo, hay, eta });
+    }
+    return filas;
+  }
+  function pintarMenu() {
+    const caja = $('menu'), { l } = menuAb, filas = filasDelMenu(), haySel = seleccion.size > 0;
+    caja.textContent = '';
+    const cab = document.createElement('div'); cab.className = 'cab';
+    const t1 = document.createElement('b'); t1.textContent = l.titulo;
+    const t2 = document.createElement('span'); t2.textContent = l.presencia;
+    cab.append(t1, t2); caja.appendChild(cab);
+    if (!haySel) {
+      const q = document.createElement('div'); q.className = 'cant';
+      const et = document.createElement('span'); et.textContent = 'cantidad'; q.appendChild(et);
+      QTY.forEach(n => { const b = document.createElement('button'); b.type = 'button'; b.textContent = '×' + n; b.setAttribute('aria-pressed', String(n === cantidad)); b.dataset.q = n; b.addEventListener('click', () => { cantidad = n; pintarMenu(); }); q.appendChild(b); });
+      caja.appendChild(q);
+    }
+    let grupo = null, primera = null, preferida = null;
+    if (!filas.length) { const v = document.createElement('p'); v.textContent = sel !== null ? `${S.NOMBRES[sel]} no puede actuar aquí` : 'Nada que hacer aquí'; caja.appendChild(v); }
+    for (const f of filas) {
+      if (grupo !== f.a.id) {
+        grupo = f.a.id;
+        const h = document.createElement('div'); h.className = 'acc'; h.textContent = f.a.n; caja.appendChild(h);
+      }
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'op'; b.setAttribute('role', 'menuitem'); b.dataset.a = f.a.id;
+      if (f.c !== undefined) b.dataset.c = f.c;
+      b.disabled = !f.ok;
+      const i = document.createElement('i'); i.style.setProperty('--c', f.c !== undefined ? `var(${VAR[f.c]})` : 'var(--hueso)');
+      const nom = document.createElement('span'); nom.textContent = f.c !== undefined ? S.NOMBRES[f.c] : f.txt;
+      const cant = document.createElement('b'); cant.textContent = f.c !== undefined ? f.hay : '';
+      const fin = document.createElement('em'); fin.textContent = f.motivo || (f.c !== undefined ? reloj(f.eta) : '');
+      b.append(i, nom, cant, fin);
+      b.addEventListener('click', () => ejecutarFila(f));
+      caja.appendChild(b);
+      if (f.ok && !primera) primera = b;
+      if (f.ok && ultima && ultima.a === f.a.id && ultima.c === f.c) preferida = b;
+    }
+    if (haySel && [...seleccion].length && propiasMoviles().some(u => seleccion.has(u.id) && u.r !== S.TIERRA)) {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'op'; b.dataset.a = 'volver';
+      const i = document.createElement('i'); i.style.setProperty('--c', 'var(--gris)');
+      const nom = document.createElement('span'); nom.textContent = 'Volver a la base';
+      b.append(i, nom, document.createElement('b'), document.createElement('em'));
+      b.addEventListener('click', () => { regresarSeleccion(); cerrarMenu(); });
+      caja.appendChild(b);
+    }
+    caja.hidden = false;
+    const r = caja.getBoundingClientRect();
+    caja.style.left = `${clampV(menuAb.sx + 12, 8, innerWidth - r.width - 8)}px`;
+    caja.style.top = `${clampV(menuAb.sy - 10, 8, innerHeight - r.height - 8)}px`;
+    (preferida || primera || caja.querySelector('button')).focus({ preventScroll: true });
+  }
+  function abrirMenu(p, sx2, sy2, toque) {
+    menuAb = { p, sx: sx2, sy: sy2, toque, t0: performance.now(), l: leerLugar(p) };
+    pintarMenu();
+  }
+  function cerrarMenu() {
+    menuAb = null;
+    const c = $('menu');
+    if (c) { if (c.contains(document.activeElement)) document.activeElement.blur(); c.hidden = true; }
+  }
+  function ejecutarFila(f) {
+    // En pantallas táctiles, el toque que abre el menú no debe activar una opción.
+    if (!menuAb || (menuAb.toque && performance.now() - menuAb.t0 < 350)) return;
+    const p = menuAb.p, a = f.a;
+    if (f.ids) {
+      const us = propiasMoviles().filter(u => f.ids.includes(u.id)), clases = new Set(us.map(u => u.c));
+      const m = crearMision(clases.size === 1 ? us[0].c : -1, a.mis);
+      m.n = us.length;
+      const previas = us.map(u => u.m);
+      if (S.aplicar(st, 0, { t: 'mover', ids: f.ids, x: p.x, y: p.y, m: m.id, mis: a.mis, ancla: a.ancla })) {
+        for (const id of previas) { const o = misiones.find(x => x.id === id); if (o) o.reasig++; }
+        marca = { x: p.x, y: p.y, ms: performance.now() };
+      } else quitarMision(m);
+    } else {
+      const m = crearMision(f.c, a.mis);
+      for (let i = 0; i < cantidad; i++) if (S.aplicar(st, 0, { t: 'lanzar', c: f.c, x: p.x, y: p.y, m: m.id, mis: a.mis, ancla: a.ancla })) m.n++;
+      if (!m.n) { quitarMision(m); aviso(`sin ${S.NOMBRES[f.c]} listo`); }
+      else { ultima = { a: a.id, c: f.c }; marca = { x: p.x, y: p.y, ms: performance.now() }; avisoOrden(f.c); }
+    }
+    tHud = 0;
+    cerrarMenu();
+  }
+  /* Cada orden es una misión con su contador. Una salva cuenta como una sola misión. */
+  function crearMision(c, accion = '') {
+    const m = { accion, id: sigM++, c, n: 0, salio: false, perdidas: 0, reasig: 0, fin: null, finMs: 0, texto: '', tiempo: '' };
+    misiones.push(m);
+    return m;
+  }
+  const quitarMision = m => { misiones = misiones.filter(x => x !== m); };
+  const reloj = seg => { const t = Math.max(0, Math.ceil(seg)); return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; };
+  function estadoUnidad(u) {
+    if (u.r === S.TIERRA) {
+      if (u.st === S.QUIETO) return null;
+      if (u.x === u.px && u.y === u.py && st.t > 0) return ['combate', -1];
+      const e = S.eta(st, u);
+      return Number.isFinite(e) ? ['marcha', e] : ['sin ruta', -1];
+    }
+    if (u.st === S.REGRESO) {
+      const b = st.bases[0];
+      return ['regreso', Math.hypot(u.x - b.x, u.y - b.y) / st.v[u.c]];
+    }
+    if (u.st === S.PATRULLA) return [u.r === S.ESP ? 'reconoce' : u.r === S.APOYO ? 'apoyo' : 'patrulla', u.aguante];
+    return [u.mis === 'bombardear' ? 'bombardeo en' : u.r === S.ATQ ? 'ataque en' : 'a posición', S.eta(st, u)];
+  }
+  function actualizarMisiones() {
+    const ahora = performance.now(), porM = new Map(), colaM = new Map();
+    for (const u of st.units) if (!u.dead && u.s === 0 && u.m) { if (!porM.has(u.m)) porM.set(u.m, []); porM.get(u.m).push(u); }
+    st.bases[0].cola.forEach(c => c.forEach(q => { if (q.m) colaM.set(q.m, Math.max(colaM.get(q.m) || 0, q.listo)); }));
+    for (const m of misiones) {
+      if (m.fin) continue;
+      const us = porM.get(m.id) || [];
+      if (us.length) m.salio = true;
+      if (colaM.has(m.id)) { m.texto = 'alista'; m.tiempo = reloj((colaM.get(m.id) - st.t) * S.DT); continue; }
+      let peor = null, quietos = 0;
+      for (const u of us) {
+        const e = estadoUnidad(u);
+        if (!e) { quietos++; continue; }
+        if (!peor || (e[1] < 0 && peor[1] >= 0) || (peor[1] >= 0 && e[1] > peor[1])) peor = e;
+      }
+      if (peor) { m.texto = peor[0]; m.tiempo = peor[1] >= 0 ? reloj(peor[1]) : ''; continue; }
+      m.tiempo = '';
+      if (quietos) m.fin = m.perdidas ? `en posición ${quietos}/${m.n}` : 'en posición';
+      else if (!m.salio) m.fin = 'cancelada';
+      else if (m.reasig && !m.perdidas) m.fin = 'reasignada';
+      else if (m.perdidas >= m.n) m.fin = 'perdida';
+      else m.fin = m.perdidas ? `cumplida ${m.n - m.perdidas}/${m.n}` : 'cumplida';
+      m.texto = m.fin; m.finMs = ahora;
+    }
+    misiones = misiones.filter(m => !m.fin || ahora - m.finMs < 7000);
+    pintarMisiones();
+  }
+  function pintarMisiones() {
+    const caja = $('misiones'), max = 8, ocultas = Math.max(0, misiones.length - max);
+    caja.textContent = '';
+    caja.hidden = !misiones.length;
+    if (ocultas) { const d = document.createElement('div'); d.className = 'm mas'; d.textContent = `+${ocultas} misiones más`; caja.appendChild(d); }
+    for (const m of misiones.slice(-max)) {
+      const d = document.createElement('div'); d.className = 'm' + (m.fin ? ' fin' : '');
+      const i = document.createElement('i'); i.style.setProperty('--c', m.c >= 0 ? `var(${VAR[m.c]})` : 'var(--hueso)');
+      const a = document.createElement('span'); a.textContent = `M${m.id} ${m.accion ? m.accion + ' · ' : ''}${m.c >= 0 ? S.NOMBRES[m.c] : 'grupo'}${m.n > 1 ? ` ×${m.n}` : ''}`;
+      const e = document.createElement('span'); e.className = 'e'; e.textContent = m.texto;
+      const t = document.createElement('b'); t.textContent = m.tiempo;
+      d.append(i, a, e, t);
+      caja.appendChild(d);
+    }
+  }
+  function avisoOrden(c) {
+    const cola = st.bases[0].cola[c];
+    tHud = 0;
+    if (cola.length) aviso(`${S.NOMBRES[c]} alistándose · sale en ${faltan(cola[cola.length - 1])} s${corriendo ? '' : ' (en pausa)'}`, 2600);
+  }
+  function aviso(t, ms = 1600) { $('aviso').textContent = t; avisoHasta = performance.now() + ms; }
+
+  cv.addEventListener('contextmenu', e => e.preventDefault());
+  function alternarCaja(on = !modoCaja) {
+    modoCaja = on;
+    $('caja').setAttribute('aria-pressed', String(on));
+    if (on) aviso('arrastra para seleccionar', 2200);
+  }
+  cv.addEventListener('pointerdown', e => {
+    if (st.fin || !$('parte').hidden) return;
+    Sonido.iniciar();
+    if (menuAb) { cerrarMenu(); return; }
+    acabarTrans();
+    if (e.pointerType === 'touch') {
+      toques.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (toques.size === 2) {
+        const [a, b] = [...toques.values()];
+        gesto = null; pinza = { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        return;
+      }
+      if (toques.size > 2) return;
+    }
+    const p = mundo(e);
+    cursor = e.pointerType === 'mouse' ? p : null;
+    if (e.button === 0) {
+      const fl = flechas.find(q => Math.hypot(q.x - e.clientX, q.y - e.clientY) < 20);
+      if (fl) { centrar(fl.f.x, fl.f.y); return; }
+    }
+    if (e.button === 2) { if (seleccion.size) ordenarSeleccion(p); return; }
+    if (e.button !== 0 && e.button !== 1) return;
+    e.preventDefault();
+    try { cv.setPointerCapture(e.pointerId); } catch (_) { /* puntero ya liberado */ }
+    gesto = { x0: e.clientX, y0: e.clientY, cx: e.clientX, cy: e.clientY, w0: p, w: p, modo: e.button === 1 ? 'pan' : 'nuevo', caja: e.shiftKey || modoCaja, sumar: e.ctrlKey || e.metaKey, umbral: e.pointerType === 'mouse' ? 8 : 14 };
+  });
+  cv.addEventListener('pointermove', e => {
+    cursorP = e.pointerType === 'mouse' ? { x: e.clientX, y: e.clientY } : null;
+    if (e.pointerType === 'touch' && toques.has(e.pointerId)) {
+      toques.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinza && toques.size === 2) {
+        const [a, b] = [...toques.values()], d = Math.hypot(a.x - b.x, a.y - b.y), x = (a.x + b.x) / 2, y = (a.y + b.y) / 2;
+        moverCam(ox + x - pinza.x, oy + y - pinza.y);
+        pinza.x = x; pinza.y = y;
+        if (d / pinza.d > 1.3) { cambiarNivel(1, x, y); pinza.d = d; } else if (d / pinza.d < .77) { cambiarNivel(-1, x, y); pinza.d = d; }
+        return;
+      }
+    }
+    const p = mundo(e);
+    cursor = e.pointerType === 'mouse' ? p : null;
+    if (!gesto) return;
+    gesto.w = p;
+    if (gesto.modo === 'nuevo' && Math.hypot(e.clientX - gesto.x0, e.clientY - gesto.y0) > gesto.umbral) gesto.modo = gesto.caja ? 'caja' : 'pan';
+    if (gesto.modo === 'pan') {
+      moverCam(ox + e.clientX - gesto.cx, oy + e.clientY - gesto.cy);
+      cv.classList.add('arrastrando');
+    }
+    gesto.cx = e.clientX; gesto.cy = e.clientY;
+  });
+  const soltar = e => {
+    if (e.pointerType === 'touch') { toques.delete(e.pointerId); if (toques.size < 2) pinza = null; }
+    cv.classList.remove('arrastrando');
+    if (!gesto) return;
+    const q = gesto;
+    gesto = null;
+    if (e.type === 'pointercancel') return;
+    if (q.modo === 'nuevo') {
+      const c = S.sectorEn(st.bases[0], q.w.x, q.w.y);
+      // Un enemigo sobre tu base manda sobre el sector: es justo cuando hay que interceptar.
+      if (c >= 0 && !seleccion.size && !leerLugar(q.w).cont) seleccionar(c);
+      else abrirMenu(q.w, e.clientX, e.clientY, e.pointerType !== 'mouse');
+    } else if (q.modo === 'caja') { aplicarCaja(q.w0, q.w, q.sumar); if (modoCaja) alternarCaja(false); }
+  };
+  cv.addEventListener('pointerup', soltar);
+  cv.addEventListener('pointercancel', soltar);
+  cv.addEventListener('pointerleave', () => { cursor = null; cursorP = null; });
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    if (st.fin || !$('parte').hidden) return;
+    const now = performance.now();
+    if (now < ruedaHasta || !e.deltaY) return;
+    ruedaHasta = now + 160;
+    if (menuAb) cerrarMenu();
+    cambiarNivel(e.deltaY < 0 ? 1 : -1, e.clientX, e.clientY);
+  }, { passive: false });
+
+  function alternarPausa() {
+    if (st.fin || !$('parte').hidden) return;
+    corriendo = !corriendo;
+    $('pausa').textContent = corriendo ? 'pausa' : 'seguir';
+    aviso(corriendo ? '' : 'en pausa · puedes dar órdenes', corriendo ? 0 : 1e9);
+  }
+  function alternarVel() { vel = vel === 1 ? 4 : vel === 4 ? 16 : 1; $('vel').textContent = '×' + vel; }
+  function alternarAuto() {
+    const on = !st.auto[0];
+    S.aplicar(st, 0, { t: 'auto', on });
+    $('modo').setAttribute('aria-pressed', String(on));
+    aviso(on ? 'las tropas avanzan solas' : 'mando directo');
+  }
+  function alternarSonido() {
+    const on = Sonido.alternar();
+    Sonido.iniciar();
+    $('sonido').setAttribute('aria-pressed', String(on));
+  }
+  function abrirParte(on) {
+    $('parte').hidden = !on;
+    if (on) {
+      corriendo = false; $('pausa').textContent = 'seguir';
+      $('bloqueMapa').hidden = iniciada;
+      $('empezar').textContent = iniciada ? 'Seguir' : 'Empezar';
+    }
+  }
+  function empezar() {
+    Sonido.iniciar();
+    iniciada = true;
+    abrirParte(false);
+    corriendo = true;
+    $('pausa').textContent = 'pausa';
+    $('aviso').textContent = '';
+  }
+  const conClic = (id, f) => $(id).addEventListener('click', e => { f(); if (e.detail) e.currentTarget.blur(); });
+  conClic('titulo', () => location.reload());
+  conClic('pausa', alternarPausa);
+  conClic('vel', alternarVel);
+  conClic('modo', alternarAuto);
+  conClic('todas', seleccionarTodas);
+  conClic('sonido', alternarSonido);
+  conClic('soltarSel', limpiarSeleccion);
+  conClic('volver', regresarSeleccion);
+  conClic('zMas', () => cambiarNivel(1));
+  conClic('zMenos', () => cambiarNivel(-1));
+  conClic('irBase', () => { acabarTrans(); irABase(); });
+  conClic('caja', () => alternarCaja());
+  conClic('ayuda', () => abrirParte($('parte').hidden));
+  conClic('empezar', empezar);
+  conClic('otra', () => { nueva(); empezar(); });
+  conClic('reiniciar', () => {
+    const b = $('reiniciar'), now = performance.now();
+    if (now < confirma) { confirma = 0; b.textContent = 'reiniciar'; nueva(); abrirParte(true); return; }
+    confirma = now + 2500; b.textContent = '¿seguro?';
+    setTimeout(() => { if (performance.now() >= confirma) { b.textContent = 'reiniciar'; confirma = 0; } }, 2600);
+  });
+  // Modo GOD: sin botón ni mención en la ayuda; se activa escribiendo god.
+  let tecleo = '';
+  function alternarGod() {
+    const on = !st.god;
+    S.aplicar(st, 0, { t: 'god', on });
+    $('titulo').textContent = on ? 'doctrina · GOD' : 'doctrina';
+    aviso(on ? 'GOD activado' : 'GOD desactivado');
+    if (on) marcas.conGod = true;
+  }
+  addEventListener('keydown', e => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (menuAb) {
+      if (e.key === 'Escape') { e.preventDefault(); cerrarMenu(); return; }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const l = [...$('menu').querySelectorAll('.op:not(:disabled)')], i = l.indexOf(document.activeElement);
+        if (l.length) l[(i + (e.key === 'ArrowDown' ? 1 : -1) + l.length) % l.length].focus();
+        return;
+      }
+    }
+    if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
+    if (e.key.startsWith('Arrow') && !menuAb) { e.preventDefault(); teclas.add(e.key); return; }
+    if (e.key.length === 1) { tecleo = (tecleo + e.key.toLowerCase()).slice(-3); if (tecleo === 'god') { tecleo = ''; alternarGod(); return; } }
+    const grupo = /^(?:Digit|Numpad)([890])$/.exec(e.code);
+    if (grupo) {
+      const n = grupo[1];
+      if (e.shiftKey) {
+        if (seleccion.size) { grupos[n] = [...seleccion]; aviso(`grupo ${n} guardado · ${seleccion.size}`); }
+      } else if (grupos[n]) {
+        const vivos = new Set(propiasMoviles().map(u => u.id));
+        const q = grupos[n].filter(id => vivos.has(id));
+        if (q.length) { fijarSeleccion(q); aviso(`grupo ${n} · ${q.length}`); } else aviso(`el grupo ${n} ya no tiene unidades`);
+      }
+      return;
+    }
+    if (e.key >= '1' && e.key <= '7') { const c = +e.key - 1; if (seleccion.size && !menuAb) filtrar(c); else seleccionar(c); return; }
+    const k = e.key.toLowerCase();
+    const enBoton = e.target && e.target.tagName === 'BUTTON';
+    if (e.code === 'Space' && !enBoton) {
+      e.preventDefault();
+      if (!$('parte').hidden) empezar(); else alternarPausa();
+    } else if (e.key === 'Escape') limpiarSeleccion();
+    else if (k === 'v') alternarVel();
+    else if (k === 'a') alternarAuto();
+    else if (k === 't') seleccionarTodas();
+    else if (k === 'r') regresarSeleccion();
+    else if (k === 'm') alternarSonido();
+    else if (e.key === '+' || e.key === '=') cambiarNivel(1);
+    else if (e.key === '-') cambiarNivel(-1);
+    else if (k === 'b') { acabarTrans(); irABase(); }
+    else if (k === 'c') alternarCaja();
+    else if (k === 'f') { const f = ultimoFaro(); if (f) { acabarTrans(); centrar(f.x, f.y); } else aviso('sin alertas recientes'); }
+    else if (k === 'h' || e.key === '?') abrirParte($('parte').hidden);
+  });
+
+  addEventListener('keyup', e => teclas.delete(e.key));
+  addEventListener('blur', () => teclas.clear());
+
+  /* ---------- Elegir mapa ---------- */
+  const msgMapa = t => { $('msgMapa').textContent = t; };
+  function usarMapa(n) {
+    const d = A.derivar(n);
+    if (!d.separa) { msgMapa('Ese mapa no sirve todavía: su frontera no separa las bases.'); return false; }
+    if (!d.hayRuta) { msgMapa('Ese mapa no sirve todavía: no hay ruta terrestre entre las bases.'); return false; }
+    if (d.bloqueo[A.idx(1, A.ROWS - 2)] || d.bloqueo[A.idx(A.COLS - 2, 1)]) { msgMapa('Ese mapa no sirve todavía: una base está sobre agua.'); return false; }
+    mapaActual = n; nueva(); abrirParte(true);
+    msgMapa(`Mapa listo: ${n.nombre}`);
+    return true;
+  }
+  function mapaDelAtlas() { try { const t = localStorage.getItem('atlas.mapa.v1'); return t ? A.deJSON(t) : null; } catch (_) { return null; } }
+  (function prepararSelector() {
+    const del = mapaDelAtlas();
+    if (del) { const o = document.createElement('option'); o.value = 'atlas'; o.textContent = `Atlas: ${del.nombre}`; $('mapaSel').appendChild(o); }
+    $('irAtlas').hidden = window.top !== window.self;
+  })();
+  $('mapaSel').addEventListener('change', e => {
+    const ok = usarMapa(e.target.value === 'atlas' ? mapaDelAtlas() || A.ejemplo() : A.ejemplo());
+    if (!ok) e.target.value = 'ejemplo';
+  });
+  conClic('pegarMapa', () => { const p = $('pegado'); p.hidden = !p.hidden; if (!p.hidden) $('jsonMapa').focus(); });
+  conClic('usarPegado', () => {
+    try { if (usarMapa(A.deJSON($('jsonMapa').value))) $('pegado').hidden = true; }
+    catch (err) { msgMapa(err.message); }
+  });
+
+  /* ---------- Registro de mensajes ---------- */
+  const mmss = t => { const s = Math.floor(t * S.DT); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
+  const lista = a => a.map((n, c) => (n ? `${n} ${S.NOMBRES[c]}` : '')).filter(Boolean).join(', ');
+  function registrar(txt, grave, lugar) {
+    const r = $('registro'), d = document.createElement('div');
+    d.textContent = `${mmss(st.t)} ${txt}`;
+    if (grave) d.className = 'grave';
+    if (lugar) { d.classList.add('ir'); d.title = 'Ir a ese lugar'; d.addEventListener('click', () => { acabarTrans(); centrar(lugar.x, lugar.y); }); }
+    r.appendChild(d);
+    while (r.children.length > 6) r.removeChild(r.firstChild);
+  }
+  function vigilar() {
+    if (st.fin) return;
+    const v = S.vista(st, 0), t = st.t, b = st.bases[0], rapido = st.v[S.AVION] * 1.3;
+    const vivos = new Set();
+    let entrantes = 0, misil = false;
+    for (const u of v.contactos) {
+      vivos.add(u.id);
+      const prev = vistos.get(u.id), conocido = !u.gris;
+      if (prev === undefined) acu.nuevos++;
+      if (conocido && prev !== 1) acu.ident[u.c]++;
+      vistos.set(u.id, conocido ? 1 : 0);
+      const esM = u.c === S.MISIL && u.r === S.ATQ;
+      const esRapido = esM || (u.gris && Math.hypot(u.x - u.px, u.y - u.py) / S.DT > rapido);
+      if (esRapido && !alarmados.has(u.id) && Math.hypot(u.x - b.x, u.y - b.y) < 460) {
+        alarmados.add(u.id); entrantes++; misil = misil || esM;
+      }
+      if (esRapido) faro(u.x, u.y, esM ? 'misil' : 'rapido', u.id);
+    }
+    for (const id of vistos.keys()) if (!vivos.has(id)) vistos.delete(id);
+    if (entrantes && t - marcas.alarma > 60) {
+      marcas.alarma = t;
+      registrar(misil ? 'misil entrante' : 'contacto rápido entrante', true);
+      Sonido.sonar('alarma');
+    }
+    if (t - marcas.bajas >= 60) {
+      marcas.bajas = t;
+      if (acu.base) { registrar(`impactos en tu base: ${acu.base}`, true, st.bases[0]); faro(st.bases[0].x, st.bases[0].y, 'base'); acu.base = 0; }
+      const p = lista(acu.pro), n = lista(acu.ene);
+      if (p) { registrar(`bajas propias: ${p}`, false, acu.lugar); if (acu.lugar) faro(acu.lugar.x, acu.lugar.y, 'combate'); }
+      if (n) registrar(`bajas enemigas: ${n}`, false);
+      acu.pro.fill(0); acu.ene.fill(0);
+    }
+    if (t - marcas.contactos >= 120) {
+      marcas.contactos = t;
+      const id = lista(acu.ident);
+      if (acu.nuevos) { registrar(`contactos nuevos: ${acu.nuevos}`, false); Sonido.sonar('ping'); }
+      if (id) registrar(`identificados: ${id}`, false);
+      acu.nuevos = 0; acu.ident.fill(0);
+    }
+    if (t - marcas.terreno >= 150) {
+      marcas.terreno = t;
+      const d = st.ter.cuenta[0] - marcas.cuenta;
+      marcas.cuenta = st.ter.cuenta[0];
+      if (d <= -6) registrar(`terreno perdido: ${-d} celdas`, true);
+    }
+    const nuevas = st.alertas[0].filter(a => a.t > marcas.alertaT);
+    if (nuevas.length) {
+      marcas.alertaT = Math.max(...nuevas.map(a => a.t));
+      registrar(`lanzamiento de misil detectado${nuevas.length > 1 ? ` ×${nuevas.length}` : ''}`, true, nuevas[0]);
+      Sonido.sonar('alarma');
+    }
+    for (const q of S.satelites(st, 0)) {
+      const m = marcas.sat[q.id] || (marcas.sat[q.id] = { activo: false, desde: 0 });
+      if (q.activo && !m.activo) { m.activo = true; m.desde = t; }
+      else if (!q.activo && m.activo) {
+        m.activo = false;
+        const n = v.fotos.filter(f => f.sat === q.id && f.t >= m.desde).length;
+        registrar(`satélite ${q.nombre}: ${n ? `${n} ${n === 1 ? 'contacto' : 'contactos'}` : 'sin contactos'}`, false);
+        if (n) Sonido.sonar('ping');
+      }
+    }
+    if (!marcas.urbes) marcas.urbes = v.ciudades.map(c => c.dueno);
+    v.ciudades.forEach((c, i) => {
+      const a = marcas.urbes[i];
+      if (a === c.dueno) return;
+      marcas.urbes[i] = c.dueno;
+      if (c.dueno > 0) { registrar('ciudad conquistada', true, c); faro(c.x, c.y, 'ciudad'); Sonido.sonar('ping'); }
+      else if (a > 0) { registrar('ciudad perdida', true, c); faro(c.x, c.y, 'ciudad'); Sonido.sonar('alarma'); }
+      else if (a < 0 && c.dueno === 0) registrar('ciudad enemiga en disputa', false, c);
+    });
+    const oP = st.bases[0].ocup > 0, oE = st.bases[1].ocup > 0;
+    if (oP && !marcas.ocupP) { registrar('están ocupando tu base', true, st.bases[0]); faro(st.bases[0].x, st.bases[0].y, 'base'); Sonido.sonar('alarma'); }
+    if (oE && !marcas.ocupE) registrar('ocupación de la base enemiga en curso', true, st.bases[1]);
+    marcas.ocupP = oP; marcas.ocupE = oE;
+  }
+
+  function hud() {
+    const n = st.ter.ctrl.length - st.mapa.der.bloqueo.reduce((a, v) => a + v, 0), pct = k => Math.round(100 * k / n);
+    let mem = 0; for (const d of st.mem[0]) if (d === -1) mem++;
+    const v = S.vista(st, 0), grises = v.contactos.filter(u => u.gris).length;
+    const cont = v.contactos.length ? ` · contactos ${v.contactos.length}${grises ? ` (${grises} grises)` : ''}` : '';
+    $('estado').textContent = `T+${mmss(st.t)} · terreno ${pct(st.ter.cuenta[0])} % · enemigo ~${pct(mem)} %${cont}`;
+    const urb = v.ciudades, tot = urb.length, meta = Math.ceil(tot * S.DATOS.conquista.fraccion), mias = urb.filter(c => c.dueno > 0).length, suyas = urb.filter(c => c.dueno < 0).length;
+    const mk = $('marcador');
+    mk.textContent = '';
+    if (tot >= S.DATOS.conquista.minimo) {
+      const fila = document.createElement('span'); fila.className = 'fila';
+      for (let i = 0; i < tot; i++) { const c = document.createElement('i'); c.className = i < mias ? 'mia' : i >= tot - suyas ? 'suya' : 'libre'; fila.appendChild(c); }
+      const tx = document.createElement('span');
+      const seg = S.DATOS.conquista.segundos;
+      const queda = Math.max(0, S.DATOS.limite * 60 - st.t * S.DT);
+      tx.textContent = (st.conq[0] > 0 ? `victoria en ${reloj(seg - st.conq[0])}` : st.conq[1] > 0 ? `derrota en ${reloj(seg - st.conq[1])}` : `${mias} de ${tot} · meta ${meta}`) + ` · quedan ${reloj(queda)}`;
+      if (st.conq[0] > 0 || st.conq[1] > 0) tx.className = 'urge';
+      mk.append(fila, tx);
+    }
+    const sat = $('sat');
+    sat.textContent = '';
+    S.satelites(st, 0).forEach(q => {
+      const e = document.createElement('span');
+      if (q.activo) e.className = 'activo';
+      e.textContent = `${q.nombre} ${q.activo ? 'pasando ' : ''}${reloj(q.faltan)}`;
+      sat.appendChild(e);
+    });
+    const al = document.createElement('span'); al.textContent = 'alerta activa'; sat.appendChild(al);
+    const stock = S.stockDe(st.bases[0]);
+    botones.forEach((b, c) => {
+      b.querySelector('b').textContent = stock[c];
+      const cola = st.bases[0].cola[c], sm = b.querySelector('small');
+      const listos = c <= S.MISIL ? st.bases[0].porClase[c].filter(r => r.full && r.lista && !r.prep).length : 0;
+      sm.hidden = !cola.length;
+      if (cola.length) sm.textContent = `alistando ${cola.length} · sale en ${faltan(cola[0])} s`;
+      b.querySelector('span').textContent = listos ? `${S.NOMBRES[c]} · ${listos} ${listos === 1 ? 'lista' : 'listas'}` : S.NOMBRES[c];
+    });
+    podar();
+    pintarSeleccion();
+    actualizarMisiones();
+    vigilar();
+    if (avisoHasta && performance.now() > avisoHasta) { $('aviso').textContent = ''; avisoHasta = 0; }
+  }
+  function cerrar() {
+    const f = st.fin, n = st.ter.ctrl.length - st.mapa.der.bloqueo.reduce((a, v) => a + v, 0), pct = k => Math.round(100 * k / n) + ' %', seg = S.DATOS.ocupacion.segundos;
+    capaT = -1;
+    limpiarSeleccion();
+    Sonido.sonar('fin', f.ganador === 0);
+    const porC = f.causa === 'ciudades', porT = f.causa === 'tiempo', sc = S.DATOS.conquista.segundos;
+    const mias = st.urbes.filter(u => u.dueno > 0).length, suyas = st.urbes.filter(u => u.dueno < 0).length;
+    $('finTitulo').textContent = porT ? (f.ganador === 0 ? 'Se acabó el tiempo: ganaste' : 'Se acabó el tiempo: perdiste') : f.ganador === 0 ? (porC ? 'Ciudades conquistadas' : 'Base enemiga tomada') : (porC ? 'El enemigo conquistó las ciudades' : 'Tu base cayó');
+    $('finTexto').textContent = porT ? `Ciudades al final: ${mias} tuyas, ${suyas} enemigas.${mias === suyas ? ' El empate lo decidió el terreno.' : ''}` : porC ? `${f.ganador === 0 ? 'Mantuviste' : 'Mantuvo'} dos tercios de las ciudades durante ${sc} segundos.` : (f.ganador === 0 ? `Tu personal sostuvo la ocupación durante ${seg} segundos.` : `El personal enemigo sostuvo la ocupación durante ${seg} segundos.`);
+    if (marcas.conGod) $('finTexto').textContent += ' Partida jugada con GOD.';
+    $('finT').textContent = mmss(f.t);
+    $('finA').textContent = pct(st.ter.cuenta[0]);
+    $('finB').textContent = pct(st.ter.cuenta[1]);
+    $('finBA').textContent = st.stats.bajas[0];
+    $('finBB').textContent = st.stats.bajas[1];
+    $('finP').textContent = g.ias[1].nombre;
+    $('final').hidden = false;
+  }
+
+  let tHud = 0, cerrado = false;
+  function cuadro(now) {
+    const dt = Math.min(.25, (now - ult) / 1000); ult = now;
+    avanzarTrans(now);
+    if (teclas.size && $('parte').hidden && !st.fin) {
+      const v = 700 * dt, dx = (teclas.has('ArrowLeft') ? v : 0) - (teclas.has('ArrowRight') ? v : 0), dy = (teclas.has('ArrowUp') ? v : 0) - (teclas.has('ArrowDown') ? v : 0);
+      if (dx || dy) moverCam(ox + dx, oy + dy);
+    }
+    if (corriendo && !st.fin) {
+      acum += dt * vel;
+      let n = 0;
+      while (acum >= S.DT && n < 40) { S.avanzar(g); acum -= S.DT; n++; }
+      if (n >= 40) acum = 0;
+    }
+    if (st.fin && !cerrado) { cerrado = true; cerrar(); } else if (!st.fin) cerrado = false;
+    dibujar(corriendo ? Math.min(1, acum / S.DT) : 1, now);
+    if (now - tHud > 200) { tHud = now; hud(); }
+    requestAnimationFrame(cuadro);
+  }
+
+  seleccionar(sel);
+  $('sonido').setAttribute('aria-pressed', String(Sonido.activo));
+  nueva();
+  abrirParte(true);
+  window.doctrina = { get partida() { return g; }, get seleccion() { return [...seleccion]; }, S, aPantalla: (x, y) => [ox + x * s, oy + y * s], centrar: (x, y) => { acabarTrans(); centrar(x, y); }, get camara() { return { s, ox, oy, nivel, niveles: [...niveles], cubre: hornoCubre() }; }, get flechas() { return flechas; }, cambiarNivel };
+  requestAnimationFrame(cuadro);
+})();
+
+</script>
+</body>
+</html>

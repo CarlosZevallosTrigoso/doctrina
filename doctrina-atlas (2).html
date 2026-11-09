@@ -1,0 +1,933 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>doctrina atlas</title>
+<style>
+/* Mesa cartográfica en negro: el mapa ocupa todo y los instrumentos van al costado. El mapa vive en grises; el color es de las unidades. */
+:root {
+  --negro: #000000; --hueso: #ece7db; --gris: #8d8c85; --tenue: #55544f; --linea: #2b2a27; --panel: #0a0a09;
+  --t-rio: #9b9a92; --t-costa: #76756e; --t-camino: #84837b; --t-frontera: #d6d2c6; --contacto: #9c9b94;
+  --avion: #56b4e9; --dron: #f0e442; --misil: #ff6a13; --personal: #ece7db; --vehiculo: #cc79a7;
+  --mono: "Fira Code", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --fs-0: 11px; --fs-1: 12px; --fs-2: 15px;
+  color-scheme: dark;
+}
+html, body { height: 100%; background: var(--negro); overflow: hidden; }
+body { color: var(--hueso); font: var(--fs-1)/1.45 var(--mono); -webkit-font-smoothing: antialiased; }
+#app { position: fixed; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr) 216px; }
+#mesa { position: relative; min-width: 0; min-height: 0; }
+#lienzo.mover { cursor: grab; }
+#lienzo { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; background: var(--negro); }
+aside { border-left: 1px solid var(--linea); background: var(--panel); overflow-y: auto; display: grid; align-content: start; gap: 14px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) calc(12px + env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) 12px; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; border-radius: 2px; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
+#titulo { justify-self: start; font-size: var(--fs-2); font-weight: 600; letter-spacing: .04em; }
+#nombre { width: 100%; background: none; border: 0; border-bottom: 1px solid var(--linea); color: var(--hueso); font: inherit; padding: 2px 0; border-radius: 0; }
+.bloque { display: grid; gap: 3px; min-width: 0; }
+.rotulo { color: var(--tenue); font-size: var(--fs-0); letter-spacing: .1em; text-transform: uppercase; }
+#valida { margin: 0; padding: 0; list-style: none; display: grid; gap: 1px; color: var(--gris); font-size: var(--fs-0); font-variant-numeric: tabular-nums; }
+#valida .falta { color: var(--hueso); }
+#valida .falta::before { content: "! "; }
+.herr { display: grid; grid-template-columns: 30px 1fr 1.5ch; align-items: center; gap: 8px; width: 100%; padding: 3px 5px; color: var(--gris); text-align: left; }
+.herr svg { display: block; }
+.herr kbd { font: inherit; color: var(--tenue); text-align: right; }
+.herr:hover { color: var(--hueso); }
+.herr[aria-checked="true"] { color: var(--negro); background: var(--hueso); }
+.herr[aria-checked="true"] kbd { color: var(--negro); }
+.herr[aria-checked="true"] svg * { fill: var(--negro); stroke-opacity: 1; }
+.fila { display: flex; flex-wrap: wrap; gap: 4px; }
+.fila button { padding: 3px 8px; border: 1px solid var(--linea); color: var(--gris); }
+.fila button:hover { color: var(--hueso); border-color: var(--tenue); }
+.fila button[aria-pressed="true"], .fila button[aria-checked="true"] { color: var(--negro); background: var(--hueso); border-color: var(--hueso); }
+.fila button:disabled { opacity: .4; cursor: default; }
+#hojaJson { position: fixed; inset: 0; display: grid; place-items: center; padding-block: 16px; padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px)); background: rgba(0, 0, 0, .6); }
+#hojaJson > div { background: var(--panel); border: 1px solid var(--linea); border-radius: 2px; padding: 16px; width: min(64ch, 100%); max-height: calc(100vh - 32px); overflow: auto; display: grid; gap: 10px; }
+#hojaJson h2 { margin: 0; font-size: var(--fs-2); font-weight: 600; }
+#hojaJson p { margin: 0; color: var(--gris); }
+#json { width: 100%; min-height: 180px; resize: vertical; background: var(--negro); color: var(--hueso); border: 1px solid var(--linea); border-radius: 2px; font: var(--fs-0)/1.4 var(--mono); padding: 8px; }
+#msgJson { min-height: 1.45em; color: var(--hueso); font-size: var(--fs-0); }
+@media (orientation: portrait), (max-width: 620px) {
+  #app { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 36%); }
+  aside { border-left: 0; border-top: 1px solid var(--linea); grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); padding-left: max(12px, env(safe-area-inset-left, 0px)); }
+}
+@media (pointer: coarse) { .herr { padding-block: 7px; } .fila button { padding: 7px 10px; } }
+</style>
+<style>body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="mesa"><canvas id="lienzo" aria-label="Mapa editable. Pinta áreas y dibuja líneas arrastrando sobre él."></canvas></div>
+  <aside aria-label="Instrumentos">
+    <div class="bloque">
+      <button id="titulo" type="button" title="Recargar la página">atlas</button>
+      <input id="nombre" type="text" maxlength="80" aria-label="Nombre del mapa" autocomplete="off">
+    </div>
+    <div class="bloque"><span class="rotulo">estado</span><ul id="valida" aria-live="polite"></ul></div>
+    <div class="bloque" role="radiogroup" aria-label="Áreas"><span class="rotulo">áreas</span><div id="herrAreas" class="bloque"></div></div>
+    <div class="bloque" role="radiogroup" aria-label="Líneas"><span class="rotulo">líneas</span><div id="herrLineas" class="bloque"></div></div>
+    <div class="bloque">
+      <span class="rotulo">pincel</span>
+      <div class="fila" role="radiogroup" aria-label="Tamaño del pincel">
+        <button type="button" role="radio" data-p="0" title="[ achica">chico</button>
+        <button type="button" role="radio" data-p="1">medio</button>
+        <button type="button" role="radio" data-p="2" title="] agranda">grande</button>
+      </div>
+    </div>
+    <div class="bloque">
+      <span class="rotulo">vista y mapa</span>
+      <div class="fila">
+        <button id="zMenos" type="button" title="Alejar (−). La rueda también acerca y aleja." aria-label="Alejar">−</button>
+        <button id="zMas" type="button" title="Acercar (+). Muévete con las flechas, el botón central o Espacio+arrastrar." aria-label="Acercar">+</button>
+        <button id="simetria" type="button" aria-pressed="true" title="Lo que dibujas se refleja en el lado opuesto (S)">reflejo</button>
+        <button id="juego" type="button" aria-pressed="true" title="Muestra dueños, bases y unidades de ejemplo (J)">capa de juego</button>
+        <button id="deshacer" type="button" title="Ctrl/Cmd + Z">deshacer</button>
+        <button id="rehacer" type="button" title="Ctrl/Cmd + Shift + Z">rehacer</button>
+        <button id="ejemplo" type="button">ejemplo</button>
+        <button id="limpiar" type="button">limpiar</button>
+        <button id="abrirJson" type="button">guardar / cargar</button>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<section id="hojaJson" hidden>
+  <div role="dialog" aria-modal="true" aria-labelledby="tituloJson">
+    <h2 id="tituloJson">Guardar o cargar un mapa</h2>
+    <p>Este texto es tu mapa completo. Cópialo para guardarlo, o pega aquí otro y cárgalo.</p>
+    <textarea id="json" spellcheck="false" aria-label="Mapa en formato JSON"></textarea>
+    <div id="msgJson" role="status"></div>
+    <div class="fila">
+      <button id="copiar" type="button">copiar</button>
+      <button id="cargar" type="button">cargar este texto</button>
+      <button id="elegirArchivo" type="button">abrir archivo</button>
+      <button id="bajar" type="button" hidden>descargar</button>
+      <button id="cerrarJson" type="button">cerrar</button>
+      <input id="archivo" type="file" accept=".json,application/json" hidden>
+    </div>
+  </div>
+</section>
+
+<script>
+/* atlas · núcleo del mapa: formato, trazos, conversión a celdas, frontera y validación. Sin DOM. */
+const ATLAS = (() => {
+  'use strict';
+  const COLS = 104, ROWS = 64, CELDA = 16, W = COLS * CELDA, H = ROWS * CELDA, N = COLS * ROWS;
+  const LLANURA = 0, AGUA = 1, BOSQUE = 2, MONTANA = 3, CIUDAD = 4;
+  const LETRAS = 'labmc', TIPOS = ['rio', 'camino', 'frontera'];
+  const R_ZONA = 190, MARGEN = 28;
+  const BASES = [{ x: MARGEN, y: H - MARGEN }, { x: W - MARGEN, y: MARGEN }];
+  const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+  const idx = (i, j) => i + j * COLS;
+  const celdaDe = (x, y) => [clamp(Math.floor(x / CELDA), 0, COLS - 1), clamp(Math.floor(y / CELDA), 0, ROWS - 1)];
+
+  function crearVacio() {
+    return { nombre: 'sin título', areas: new Uint8Array(N), lineas: [], simetria: true, sigG: 1 };
+  }
+
+  // Pincel: pinta siempre la celda bajo el cursor y las que caen dentro del radio.
+  function pintar(m, x, y, radio, tipo) {
+    const poner = k => { m.areas[k] = tipo; if (m.simetria) m.areas[N - 1 - k] = tipo; };
+    const [ci, cj] = celdaDe(x, y);
+    poner(idx(ci, cj));
+    const r = Math.ceil(radio / CELDA);
+    for (let j = Math.max(0, cj - r); j <= Math.min(ROWS - 1, cj + r); j++) {
+      for (let i = Math.max(0, ci - r); i <= Math.min(COLS - 1, ci + r); i++) {
+        if (Math.hypot((i + .5) * CELDA - x, (j + .5) * CELDA - y) <= radio) poner(idx(i, j));
+      }
+    }
+  }
+
+  // Limpieza del trazo a mano: quita temblor, redondea y lleva los extremos al borde o al centro.
+  function simplificar(p, tol) {
+    const n = p.length / 2;
+    if (n < 3) return p.slice();
+    const marca = new Uint8Array(n); marca[0] = marca[n - 1] = 1;
+    const pila = [[0, n - 1]];
+    while (pila.length) {
+      const [a, b] = pila.pop();
+      let mx = -1, md = tol;
+      for (let k = a + 1; k < b; k++) {
+        const d = distSeg(p[k * 2], p[k * 2 + 1], p[a * 2], p[a * 2 + 1], p[b * 2], p[b * 2 + 1]);
+        if (d > md) { md = d; mx = k; }
+      }
+      if (mx >= 0) { marca[mx] = 1; pila.push([a, mx], [mx, b]); }
+    }
+    const q = [];
+    for (let k = 0; k < n; k++) if (marca[k]) q.push(p[k * 2], p[k * 2 + 1]);
+    return q;
+  }
+  function suavizar(p, pasadas = 1) {
+    let q = p;
+    for (let v = 0; v < pasadas; v++) {
+      if (q.length < 6) return q.slice();
+      const r = [q[0], q[1]];
+      for (let k = 0; k + 3 < q.length; k += 2) {
+        const [x0, y0, x1, y1] = [q[k], q[k + 1], q[k + 2], q[k + 3]];
+        r.push(x0 * .75 + x1 * .25, y0 * .75 + y1 * .25, x0 * .25 + x1 * .75, y0 * .25 + y1 * .75);
+      }
+      r.push(q[q.length - 2], q[q.length - 1]);
+      q = r;
+    }
+    return q;
+  }
+  function limpiarTrazo(p, simetria) {
+    const q = suavizar(simplificar(p, 2.2), 1);
+    const ajustar = k => {
+      if (simetria && Math.hypot(q[k] - W / 2, q[k + 1] - H / 2) <= CELDA * 1.5) { q[k] = W / 2; q[k + 1] = H / 2; return; }
+      if (q[k] <= CELDA * 1.5) q[k] = 0; else if (q[k] >= W - CELDA * 1.5) q[k] = W;
+      if (q[k + 1] <= CELDA * 1.5) q[k + 1] = 0; else if (q[k + 1] >= H - CELDA * 1.5) q[k + 1] = H;
+    };
+    ajustar(0); ajustar(q.length - 2);
+    return q;
+  }
+  const espejoP = p => p.map((v, k) => (k % 2 === 0 ? W - v : H - v));
+  function agregarLinea(m, t, p) {
+    const g = m.sigG++;
+    m.lineas.push({ t, p, g });
+    if (m.simetria) m.lineas.push({ t, p: espejoP(p), g });
+    return g;
+  }
+  function distSeg(x, y, x0, y0, x1, y1) {
+    const dx = x1 - x0, dy = y1 - y0, l = dx * dx + dy * dy;
+    const t = l ? clamp(((x - x0) * dx + (y - y0) * dy) / l, 0, 1) : 0;
+    return Math.hypot(x - (x0 + t * dx), y - (y0 + t * dy));
+  }
+  function quitarLineaCerca(m, x, y, tol) {
+    let mejor = null, md = tol;
+    for (const l of m.lineas) {
+      for (let k = 0; k + 3 < l.p.length; k += 2) {
+        const d = distSeg(x, y, l.p[k], l.p[k + 1], l.p[k + 2], l.p[k + 3]);
+        if (d < md) { md = d; mejor = l; }
+      }
+    }
+    if (!mejor) return false;
+    m.lineas = m.lineas.filter(l => l.g !== mejor.g);
+    return true;
+  }
+
+  // Recorrido 4-conexo: un trazo convertido a celdas nunca deja huecos en diagonal.
+  function celdasDeSegmento(x0, y0, x1, y1, emitir) {
+    x0 = clamp(x0, 0, W - 1e-6); x1 = clamp(x1, 0, W - 1e-6);
+    y0 = clamp(y0, 0, H - 1e-6); y1 = clamp(y1, 0, H - 1e-6);
+    let cx = Math.floor(x0 / CELDA), cy = Math.floor(y0 / CELDA);
+    const ex = Math.floor(x1 / CELDA), ey = Math.floor(y1 / CELDA);
+    const dx = x1 - x0, dy = y1 - y0, sx = dx > 0 ? 1 : -1, sy = dy > 0 ? 1 : -1;
+    let tx = dx !== 0 ? ((sx > 0 ? (cx + 1) * CELDA : cx * CELDA) - x0) / dx : Infinity;
+    let ty = dy !== 0 ? ((sy > 0 ? (cy + 1) * CELDA : cy * CELDA) - y0) / dy : Infinity;
+    const dtx = dx !== 0 ? CELDA / Math.abs(dx) : Infinity, dty = dy !== 0 ? CELDA / Math.abs(dy) : Infinity;
+    emitir(cx, cy);
+    let tope = COLS + ROWS + 4;
+    while ((cx !== ex || cy !== ey) && tope-- > 0) {
+      if (tx < ty) { tx += dtx; cx += sx; } else { ty += dty; cy += sy; }
+      emitir(clamp(cx, 0, COLS - 1), clamp(cy, 0, ROWS - 1));
+    }
+  }
+  function rasterizar(m, t, sal) {
+    for (const l of m.lineas) {
+      if (l.t !== t) continue;
+      for (let k = 0; k + 3 < l.p.length; k += 2) {
+        celdasDeSegmento(l.p[k], l.p[k + 1], l.p[k + 2], l.p[k + 3], (i, j) => { sal[idx(i, j)] = 1; });
+      }
+    }
+  }
+
+  const V8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+  function ruta(bloqueo, a, b) {
+    if (bloqueo[a] || bloqueo[b]) return false;
+    const vis = new Uint8Array(N), cola = [a];
+    vis[a] = 1;
+    for (let h = 0; h < cola.length; h++) {
+      const k = cola[h];
+      if (k === b) return true;
+      const i = k % COLS, j = (k - i) / COLS;
+      for (const [dx, dy] of V8) {
+        const x = i + dx, y = j + dy;
+        if (x < 0 || y < 0 || x >= COLS || y >= ROWS) continue;
+        const q = idx(x, y);
+        if (vis[q] || bloqueo[q]) continue;
+        // Sin atajos por las esquinas de lo que bloquea.
+        if (dx && dy && (bloqueo[idx(i + dx, j)] || bloqueo[idx(i, j + dy)])) continue;
+        vis[q] = 1; cola.push(q);
+      }
+    }
+    return false;
+  }
+
+  function derivar(m) {
+    const rio = new Uint8Array(N), camino = new Uint8Array(N), fro = new Uint8Array(N);
+    rasterizar(m, 'rio', rio); rasterizar(m, 'camino', camino); rasterizar(m, 'frontera', fro);
+    // Dos trazos en espejo no caen en celdas exactamente opuestas: se unen para que el mapa sea justo.
+    if (m.simetria) for (const c of [rio, camino, fro]) for (let k = 0; k < N; k++) if (c[k]) c[N - 1 - k] = 1;
+    const puente = new Uint8Array(N), bloqueo = new Uint8Array(N);
+    const cuenta = [0, 0, 0, 0, 0];
+    for (let k = 0; k < N; k++) {
+      cuenta[m.areas[k]]++;
+      const agua = m.areas[k] === AGUA || rio[k];
+      puente[k] = agua && camino[k] ? 1 : 0;
+      bloqueo[k] = agua && !puente[k] ? 1 : 0;
+    }
+    const [ax, ay] = celdaDe(BASES[0].x, BASES[0].y), [bx, by] = celdaDe(BASES[1].x, BASES[1].y);
+    const A = idx(ax, ay), B = idx(bx, by);
+
+    // Lados: la frontera es una barrera 4-conexa, así que un relleno 8-conexo no la atraviesa.
+    const lado = new Int8Array(N), hayFrontera = m.lineas.some(l => l.t === 'frontera');
+    let separa = false;
+    if (hayFrontera && !fro[A] && !fro[B]) {
+      const cola = [A]; lado[A] = 1;
+      for (let h = 0; h < cola.length; h++) {
+        const k = cola[h], i = k % COLS, j = (k - i) / COLS;
+        for (const [dx, dy] of V8) {
+          const x = i + dx, y = j + dy;
+          if (x < 0 || y < 0 || x >= COLS || y >= ROWS) continue;
+          const q = idx(x, y);
+          if (!lado[q] && !fro[q]) { lado[q] = 1; cola.push(q); }
+        }
+      }
+      separa = lado[B] === 0;
+    }
+    for (let k = 0; k < N; k++) {
+      const i = k % COLS, j = (k - i) / COLS;
+      const dA = Math.hypot((i + .5) * CELDA - BASES[0].x, (j + .5) * CELDA - BASES[0].y);
+      const dB = Math.hypot((i + .5) * CELDA - BASES[1].x, (j + .5) * CELDA - BASES[1].y);
+      const cerca = dA < dB ? 1 : dA > dB ? -1 : (k < N / 2 ? 1 : -1);
+      if (!separa) lado[k] = cerca;
+      else if (fro[k]) lado[k] = cerca;
+      else if (!lado[k]) lado[k] = -1;
+    }
+
+    let puentes = 0;
+    const vistoP = new Uint8Array(N), centrosPuente = [];
+    for (let k = 0; k < N; k++) {
+      if (!puente[k] || vistoP[k]) continue;
+      puentes++;
+      const cola = [k]; vistoP[k] = 1;
+      let sx = 0, sy = 0;
+      for (let h = 0; h < cola.length; h++) {
+        const c = cola[h], i = c % COLS, j = (c - i) / COLS;
+        sx += (i + .5) * CELDA; sy += (j + .5) * CELDA;
+        for (const [dx, dy] of V8) {
+          const x = i + dx, y = j + dy;
+          if (x < 0 || y < 0 || x >= COLS || y >= ROWS) continue;
+          const q = idx(x, y);
+          if (puente[q] && !vistoP[q]) { vistoP[q] = 1; cola.push(q); }
+        }
+      }
+      centrosPuente.push({ x: sx / cola.length, y: sy / cola.length });
+    }
+    const hayRuta = ruta(bloqueo, A, B);
+    const avisos = [];
+    if (!hayFrontera) avisos.push('falta dibujar la frontera');
+    else if (!separa) avisos.push('la frontera no separa las bases');
+    if (!hayRuta) avisos.push('no hay ruta terrestre entre las bases');
+    if (bloqueo[A] || bloqueo[B]) avisos.push('una base está sobre agua');
+    return { rio, camino, fro, puente, bloqueo, lado, separa, hayRuta, puentes, centrosPuente, cuenta, avisos };
+  }
+
+  // Costas: contorno del agua, encadenado y redondeado para que no se lea la retícula.
+  function costas(m) {
+    const seg = [], clave = (x, y) => x + y * (COLS + 1), desde = new Map(), entrantes = new Map();
+    const esAgua = (i, j) => m.areas[idx(i, j)] === AGUA;
+    const poner = (x0, y0, x1, y1) => {
+      const s = { x0, y0, x1, y1, usado: false };
+      seg.push(s);
+      const a = clave(x0, y0), b = clave(x1, y1);
+      if (!desde.has(a)) desde.set(a, []);
+      desde.get(a).push(s);
+      entrantes.set(b, (entrantes.get(b) || 0) + 1);
+    };
+    for (let j = 0; j < ROWS; j++) for (let i = 0; i < COLS; i++) {
+      if (!esAgua(i, j)) continue;
+      if (j > 0 && !esAgua(i, j - 1)) poner(i, j, i + 1, j);
+      if (i < COLS - 1 && !esAgua(i + 1, j)) poner(i + 1, j, i + 1, j + 1);
+      if (j < ROWS - 1 && !esAgua(i, j + 1)) poner(i + 1, j + 1, i, j + 1);
+      if (i > 0 && !esAgua(i - 1, j)) poner(i, j + 1, i, j);
+    }
+    const caminos = [];
+    const recorrer = ini => {
+      const p = [ini.x0 * CELDA, ini.y0 * CELDA];
+      let s = ini;
+      while (s && !s.usado) {
+        s.usado = true;
+        p.push(s.x1 * CELDA, s.y1 * CELDA);
+        s = (desde.get(clave(s.x1, s.y1)) || []).find(o => !o.usado);
+      }
+      caminos.push(suavizar(p, 3));
+    };
+    for (const s of seg) if (!s.usado && !entrantes.has(clave(s.x0, s.y0))) recorrer(s);
+    for (const s of seg) if (!s.usado) recorrer(s);
+    return caminos;
+  }
+
+  // Muestreo por ritmo: cada patrón es una lista de posiciones y radios dentro de un ciclo.
+  function muestrear(p, ciclo, marcas, emitir) {
+    let acum = 0, k = 0, n = 0;
+    if (p.length < 4) return;
+    let lseg = Math.hypot(p[2] - p[0], p[3] - p[1]);
+    for (let c = 0; c < 20000; c++) {
+      for (const [d, r] of marcas) {
+        const s = c * ciclo + d;
+        while (s > acum + lseg) {
+          acum += lseg; k += 2;
+          if (k + 3 >= p.length) return;
+          lseg = Math.hypot(p[k + 2] - p[k], p[k + 3] - p[k + 1]);
+        }
+        const t = lseg ? (s - acum) / lseg : 0;
+        emitir(p[k] + (p[k + 2] - p[k]) * t, p[k + 1] + (p[k + 3] - p[k + 1]) * t, r, n++);
+      }
+    }
+  }
+
+  // Formato de archivo
+  function aRLE(a) {
+    let s = '', k = 0;
+    while (k < a.length) {
+      let f = k;
+      while (f < a.length && a[f] === a[k]) f++;
+      s += LETRAS[a[k]] + (f - k);
+      k = f;
+    }
+    return s;
+  }
+  function deRLE(s, total = N) {
+    const a = new Uint8Array(total);
+    const re = /([labmc])(\d+)/g;
+    let k = 0, m, fin = 0;
+    while ((m = re.exec(s))) {
+      if (m.index !== fin) throw new Error('El dibujo de áreas está dañado.');
+      fin = re.lastIndex;
+      const n = +m[2];
+      if (k + n > total) throw new Error('El dibujo de áreas tiene más celdas que el mapa.');
+      a.fill(LETRAS.indexOf(m[1]), k, k + n);
+      k += n;
+    }
+    if (fin !== s.length || k !== total) throw new Error('El dibujo de áreas no cubre el mapa completo.');
+    return a;
+  }
+  function aJSON(m) {
+    return JSON.stringify({ formato: 'doctrina-mapa', v: 2, nombre: m.nombre, cols: COLS, rows: ROWS, celda: CELDA, simetria: m.simetria, areas: aRLE(m.areas),
+      lineas: m.lineas.map(l => ({ t: l.t, g: l.g, p: l.p.map(v => Math.round(v * 10) / 10) })) });
+  }
+  function deJSON(txt) {
+    let o;
+    try { o = JSON.parse(txt); } catch (_) { throw new Error('El texto no es JSON válido.'); }
+    if (!o || o.formato !== 'doctrina-mapa') throw new Error('Este JSON no es un mapa de doctrina.');
+    if (o.v !== 1 && o.v !== 2) throw new Error(`Versión de mapa no admitida: ${o.v}.`);
+    // La versión 1 medía 52×32: se convierte duplicando cada celda y cada coordenada.
+    const antiguo = o.v === 1, escala = antiguo ? 2 : 1, colsO = COLS / escala, rowsO = ROWS / escala;
+    if (o.cols !== colsO || o.rows !== rowsO || o.celda !== CELDA) throw new Error(`El mapa debe medir ${colsO}×${rowsO} celdas de ${CELDA}.`);
+    if (typeof o.areas !== 'string') throw new Error('Falta el dibujo de áreas.');
+    if (!Array.isArray(o.lineas) || o.lineas.length > 600) throw new Error('La lista de líneas no es válida.');
+    const m = crearVacio();
+    m.nombre = typeof o.nombre === 'string' ? o.nombre.slice(0, 80) : 'sin título';
+    m.simetria = !!o.simetria;
+    if (antiguo) {
+      const v = deRLE(o.areas, colsO * rowsO);
+      for (let j = 0; j < ROWS; j++) for (let i = 0; i < COLS; i++) m.areas[idx(i, j)] = v[(i >> 1) + (j >> 1) * colsO];
+    } else m.areas = deRLE(o.areas);
+    let g = 1;
+    for (const l of o.lineas) {
+      if (!l || !TIPOS.includes(l.t) || !Array.isArray(l.p) || l.p.length < 4 || l.p.length % 2 || l.p.length > 8000 || !l.p.every(Number.isFinite)) throw new Error('Una línea del mapa no es válida.');
+      const gr = Number.isInteger(l.g) ? l.g : g;
+      m.lineas.push({ t: l.t, g: gr, p: l.p.map((v, k) => clamp(v * escala, 0, k % 2 ? H : W)) });
+      g = Math.max(g, gr + 1);
+    }
+    m.sigG = g;
+    return m;
+  }
+
+  // Mapa de ejemplo, trazado sobre una mitad y reflejado
+  function ejemplo() {
+    const m = crearVacio();
+    m.nombre = 'Dos riberas';
+    const ruido = (x, y) => Math.sin(x * .0155 + 1.3) * Math.cos(y * .0135 + .7) + .5 * Math.sin(x * .035 + y * .025);
+    const poner = (k, t) => { m.areas[k] = t; m.areas[N - 1 - k] = t; };
+    const cada = f => { for (let j = 0; j < ROWS; j++) for (let i = 0; i < COLS; i++) f((i + .5) * CELDA, (j + .5) * CELDA, idx(i, j)); };
+    const lineaP = [440, 116, 524, 236, 600, 340, 704, 428];
+    const dLinea = (x, y) => { let d = 1e9; for (let k = 0; k + 3 < lineaP.length; k += 2) d = Math.min(d, distSeg(x, y, lineaP[k], lineaP[k + 1], lineaP[k + 2], lineaP[k + 3])); return d; };
+    cada((x, y, k) => {
+      if (Math.hypot(x, y) + ruido(x, y) * 52 < 352) poner(k, AGUA);
+    });
+    cada((x, y, k) => {
+      const d = dLinea(x, y);
+      if (d + ruido(x * 2, y * 2) * 24 < 60 && Math.hypot(x - 524, y - 236) > 32) poner(k, MONTANA);
+    });
+    for (const [cx, cy, r] of [[636, 704, 112], [464, 492, 68], [168, 536, 80], [860, 828, 104], [1032, 904, 68], [330, 880, 56], [1210, 930, 60]]) {
+      cada((x, y, k) => { if (m.areas[k] === LLANURA && Math.hypot(x - cx, y - cy) + ruido(x * 3, y * 3) * 18 < r) poner(k, BOSQUE); });
+    }
+    // Seis ciudades por lado. Conservan su radio: conquistar una cuesta lo mismo que antes.
+    for (const [cx, cy, r] of [[412, 704, 18], [712, 592, 16], [940, 764, 20], [252, 660, 12], [600, 930, 14], [530, 490, 14]]) {
+      cada((x, y, k) => { if (m.areas[k] !== AGUA && Math.hypot(x - cx, y - cy) < r) poner(k, CIUDAD); });
+    }
+    const curva = p => suavizar(p, 2);
+    agregarLinea(m, 'frontera', curva([336, 0, 428, 96, 400, 220, 536, 300, 612, 412, 748, 452, 832, 512]));
+    agregarLinea(m, 'rio', curva([192, 192, 336, 376, 376, 564, 524, 724, 560, 884, 644, 1024]));
+    agregarLinea(m, 'rio', curva([600, 352, 520, 428, 428, 480, 372, 524]));
+    agregarLinea(m, 'camino', curva([120, 904, 260, 804, 412, 696, 576, 652, 708, 596, 832, 512]));
+    agregarLinea(m, 'camino', curva([80, 964, 320, 940, 600, 930, 800, 884, 940, 768, 1120, 784, 1212, 816, 1304, 724]));
+    agregarLinea(m, 'camino', curva([260, 804, 252, 660, 300, 524, 428, 428, 524, 236, 428, 144]));
+    agregarLinea(m, 'camino', curva([428, 428, 530, 490, 576, 652]));
+    return m;
+  }
+
+  return { COLS, ROWS, CELDA, W, H, N, LLANURA, AGUA, BOSQUE, MONTANA, CIUDAD, TIPOS, BASES, R_ZONA,
+    crearVacio, pintar, limpiarTrazo, agregarLinea, quitarLineaCerca, celdasDeSegmento, derivar, ruta, costas, muestrear, aJSON, deJSON, ejemplo, idx };
+})();
+if (typeof module !== 'undefined') module.exports = ATLAS;
+
+/* atlas · dibujo y entrada */
+(() => {
+  'use strict';
+  const A = ATLAS;
+  const $ = id => document.getElementById(id);
+  const cv = $('lienzo'), ctx = cv.getContext('2d', { alpha: false });
+  const capa = document.createElement('canvas'), cc = capa.getContext('2d');
+  const tok = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const NEGRO = tok('--negro'), HUESO = tok('--hueso'), GRIS = tok('--gris'), TENUE = tok('--tenue'), CONTACTO = tok('--contacto');
+  const COL = ['--avion', '--dron', '--misil', '--personal', '--vehiculo'].map(tok);
+  const TAU = Math.PI * 2;
+  const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+  const CLAVE = 'atlas.mapa.v1';
+
+  // Lenguaje gráfico: el número de puntos dice el terreno; el ritmo, el tipo de línea.
+  const GLIFO = { [A.LLANURA]: [[0, 0]], [A.BOSQUE]: [[-3.6, -3.6], [3.6, 3.6]], [A.MONTANA]: [[0, -5.2], [-4.6, 3.4], [4.6, 3.4]], [A.CIUDAD]: [[-4.4, -4.4], [4.4, -4.4], [-4.4, 4.4], [4.4, 4.4]] };
+  const ALFA = { [A.LLANURA]: .38, [A.BOSQUE]: .64, [A.MONTANA]: .95, [A.CIUDAD]: 1 };
+  const TALLA = { [A.LLANURA]: 1, [A.BOSQUE]: 1.05, [A.MONTANA]: 1.25, [A.CIUDAD]: 1.3 };
+  const RITMO = {
+    costa: { c: 3.6, m: [[0, .6]], col: tok('--t-costa') },
+    rio: { c: 3, m: [[0, .82]], col: tok('--t-rio') },
+    camino: { c: 12, m: [[0, .85], [3.4, .85]], col: tok('--t-camino') },
+    frontera: { c: 18, m: [[0, 1.75], [6, .8], [9, .8], [12, .8]], col: tok('--t-frontera') },
+  };
+  const AREAS = [
+    { id: 'llanura', tipo: A.LLANURA, n: 'llanura', k: '1' },
+    { id: 'agua', tipo: A.AGUA, n: 'agua', k: '2' },
+    { id: 'bosque', tipo: A.BOSQUE, n: 'bosque', k: '3' },
+    { id: 'montana', tipo: A.MONTANA, n: 'montaña', k: '4' },
+    { id: 'ciudad', tipo: A.CIUDAD, n: 'ciudad', k: '5' },
+  ];
+  const LINEAS = [
+    { id: 'rio', linea: 'rio', n: 'río', k: '6' },
+    { id: 'camino', linea: 'camino', n: 'camino', k: '7' },
+    { id: 'frontera', linea: 'frontera', n: 'frontera', k: '8' },
+    { id: 'borrar', n: 'borrar línea', k: '9' },
+  ];
+  const HERR = [...AREAS, ...LINEAS];
+  const PINCEL = [1, 24, 60];
+  const ZOOM = [1, 2, 3.5];
+
+  let m, der, muestra = [], herr = 'bosque', pincel = 1, capaJuego = true;
+  let undo = [], redo = [], trazo = null, cursor = null, sucio = true, capaSucia = true, costasCache = [], tGuardar = 0;
+  let cw = 1, ch = 1, dpr = 1, s = 1, ox = 0, oy = 0, rot = false, f = 1, nivel = 0, base = 1, espacio = false, paneo = null, pinza = null, ruedaHasta = 0;
+  const toques = new Map();
+
+  /* ---------- Escala y giro ---------- */
+  function medir() {
+    const r = $('mesa').getBoundingClientRect();
+    const cxp = cw / 2, cyp = ch / 2, wx = (cxp - ox) / s, wy = (cyp - oy) / s;
+    dpr = Math.min(devicePixelRatio || 1, 2);
+    cw = Math.max(1, r.width); ch = Math.max(1, r.height);
+    for (const c of [cv, capa]) { c.width = Math.round(cw * dpr); c.height = Math.round(ch * dpr); }
+    rot = ch > cw * 1.05;
+    const mw = rot ? A.H : A.W, mh = rot ? A.W : A.H;
+    base = Math.min(cw / mw, ch / mh);
+    s = base * ZOOM[nivel];
+    f = clamp(s / 1.6, .72, 1.3);
+    ox = cw / 2 - wx * s; oy = ch / 2 - wy * s;
+    acotar();
+    capaSucia = sucio = true;
+    pedir();
+  }
+  function acotar() {
+    const mw = (rot ? A.H : A.W) * s, mh = (rot ? A.W : A.H) * s;
+    ox = mw <= cw ? (cw - mw) / 2 : clamp(ox, cw - mw, 0);
+    oy = mh <= ch ? (ch - mh) / 2 : clamp(oy, ch - mh, 0);
+  }
+  function repintarVista() { capaSucia = sucio = true; pedir(); }
+  function moverVista(dx, dy) { ox += dx; oy += dy; acotar(); repintarVista(); }
+  function cambiarZoom(d, ax = cw / 2, ay = ch / 2) {
+    const n = clamp(nivel + d, 0, ZOOM.length - 1);
+    if (n === nivel) return;
+    nivel = n;
+    const s1 = base * ZOOM[n];
+    ox = ax - (ax - ox) * s1 / s; oy = ay - (ay - oy) * s1 / s;
+    s = s1; f = clamp(s / 1.6, .72, 1.3);
+    acotar(); repintarVista();
+  }
+  const PX = (x, y) => (rot ? ox + y * s : ox + x * s);
+  const PY = (x, y) => (rot ? oy + (A.W - x) * s : oy + y * s);
+  function aMundo(e) {
+    const r = cv.getBoundingClientRect();
+    const u = (e.clientX - r.left - ox) / s, v = (e.clientY - r.top - oy) / s;
+    const x = rot ? A.W - v : u, y = rot ? u : v;
+    return { x: clamp(x, 0, A.W), y: clamp(y, 0, A.H) };
+  }
+
+  /* ---------- Dibujo ---------- */
+  const circulo = (p, x, y, r) => { p.moveTo(x + r, y); p.arc(x, y, r, 0, TAU); };
+  const rombo = (p, x, y, r) => { p.moveTo(x, y - r); p.lineTo(x + r, y); p.lineTo(x, y + r); p.lineTo(x - r, y); p.closePath(); };
+
+  function linea(c, p, r) {
+    const q = new Path2D();
+    A.muestrear(p, r.c, r.m, (x, y, rad) => { const a = PX(x, y), b = PY(x, y); if (a > -8 && a < cw + 8 && b > -8 && b < ch + 8) circulo(q, a, b, rad * f); });
+    c.fillStyle = r.col; c.fill(q);
+  }
+  function dibujarBase(c, b, signo, propio) {
+    const R = A.R_ZONA;
+    const arco = new Path2D();
+    for (let a = 0; a <= Math.PI / 2 + .001; a += 4 / R) circulo(arco, PX(b.x + signo * R * Math.cos(a), b.y - signo * R * Math.sin(a)), PY(b.x + signo * R * Math.cos(a), b.y - signo * R * Math.sin(a)), .7 * f);
+    c.fillStyle = TENUE; c.fill(arco);
+    if (!capaJuego) return;
+    const n = 5, w = (Math.PI / 2 - .16) / n;
+    for (let k = 0; k < n; k++) {
+      const q = new Path2D(), a0 = k * (w + .04);
+      for (let r = 44; r <= 164; r += 13) {
+        const t = Math.max(1, Math.floor(w * r / 13));
+        for (let i = 0; i < t; i++) {
+          const a = a0 + (i + .5) * w / t, wx = b.x + signo * r * Math.cos(a), wy = b.y - signo * r * Math.sin(a);
+          if (propio) circulo(q, PX(wx, wy), PY(wx, wy), 2.5 * f); else rombo(q, PX(wx, wy), PY(wx, wy), 3.4 * f);
+        }
+      }
+      if (propio) { c.fillStyle = COL[k]; c.fill(q); } else { c.strokeStyle = COL[k]; c.globalAlpha = .5; c.lineWidth = 1; c.stroke(q); c.globalAlpha = 1; }
+    }
+  }
+  function dibujarCapa() {
+    const c = cc;
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.fillStyle = NEGRO; c.fillRect(0, 0, cw, ch);
+
+    // Glifos: la forma dice el dueño y el número de puntos, el terreno.
+    const cubos = new Map();
+    const cubo = (l, t) => { const k = l + '|' + t; if (!cubos.has(k)) cubos.set(k, new Path2D()); return cubos.get(k); };
+    const rp = 1.2 * f, rr = 1.75 * f;
+    for (let j = 0; j < A.ROWS; j++) for (let i = 0; i < A.COLS; i++) {
+      const k = A.idx(i, j), t = m.areas[k];
+      if (t === A.AGUA) continue;
+      const cx = (i + .5) * A.CELDA, cy = (j + .5) * A.CELDA, pc = PX(cx, cy), qc = PY(cx, cy);
+      if (pc < -20 || pc > cw + 20 || qc < -20 || qc > ch + 20) continue;
+      const l = capaJuego ? der.lado[k] : 0, q = cubo(l, t), ta = TALLA[t];
+      for (const [dx, dy] of GLIFO[t]) {
+        const x = PX(cx + dx, cy + dy), y = PY(cx + dx, cy + dy);
+        if (l < 0) rombo(q, x, y, rr * ta); else circulo(q, x, y, (l > 0 ? rp : rp * .85) * ta);
+      }
+    }
+    c.lineWidth = .85;
+    for (const [k, q] of cubos) {
+      const [l, t] = k.split('|').map(Number), tinta = t === A.CIUDAD ? HUESO : GRIS;
+      c.globalAlpha = ALFA[t];
+      if (l < 0) { c.strokeStyle = tinta; c.stroke(q); } else { c.fillStyle = tinta; c.fill(q); }
+    }
+    c.globalAlpha = 1;
+
+    for (const p of costasCache) linea(c, p, RITMO.costa);
+    for (const t of ['rio', 'camino', 'frontera']) for (const l of m.lineas) if (l.t === t) linea(c, l.p, RITMO[t]);
+
+    const puentes = new Path2D();
+    for (const p of der.centrosPuente) circulo(puentes, PX(p.x, p.y), PY(p.x, p.y), 3.6 * f);
+    c.strokeStyle = HUESO; c.lineWidth = 1; c.stroke(puentes);
+
+    dibujarBase(c, A.BASES[0], 1, true);
+    dibujarBase(c, A.BASES[1], -1, false);
+
+    if (capaJuego) {
+      const pro = COL.map(() => new Path2D()), ene = COL.map(() => new Path2D()), gr = new Path2D(), ce = new Path2D();
+      for (const u of muestra) {
+        const x = PX(u.x, u.y), y = PY(u.x, u.y);
+        if (u.gris) { rombo(gr, x, y, 4.6 * f); ce.rect(x - .8, y - .8, 1.6, 1.6); }
+        else if (u.lado > 0) circulo(pro[u.c], x, y, (u.c < 3 ? 3.2 : 2.7) * f);
+        else rombo(ene[u.c], x, y, (u.c < 3 ? 4.6 : 4) * f);
+      }
+      c.lineWidth = 1.2;
+      COL.forEach((col, k) => { c.fillStyle = col; c.fill(pro[k]); c.strokeStyle = col; c.stroke(ene[k]); });
+      c.strokeStyle = CONTACTO; c.stroke(gr); c.fillStyle = CONTACTO; c.fill(ce);
+    }
+
+    // Esquinas del mapa, para leer sus límites cuando sobra margen
+    const esq = new Path2D();
+    for (const [x, y] of [[0, 0], [A.W, 0], [0, A.H], [A.W, A.H]]) { const px = PX(x, y), py = PY(x, y); esq.rect(px - 1, py - 1, 2, 2); }
+    c.fillStyle = TENUE; c.fill(esq);
+    capaSucia = false;
+  }
+
+  function dibujar() {
+    sucio = false;
+    if (capaSucia) dibujarCapa();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.drawImage(capa, 0, 0, cw, ch);
+    const h = HERR.find(x => x.id === herr);
+    if (trazo && trazo.k === 'linea' && trazo.p.length >= 4) linea(ctx, trazo.p, RITMO[h.linea]);
+    if (cursor) {
+      const x = PX(cursor.x, cursor.y), y = PY(cursor.x, cursor.y);
+      ctx.strokeStyle = HUESO; ctx.lineWidth = 1; ctx.globalAlpha = .75;
+      ctx.beginPath();
+      if (h.tipo !== undefined) ctx.arc(x, y, Math.max(A.CELDA * .5, PINCEL[pincel]) * s, 0, TAU);
+      else ctx.arc(x, y, h.id === 'borrar' ? 8 * s : 3, 0, TAU);
+      ctx.stroke(); ctx.globalAlpha = 1;
+    }
+  }
+  function pedir() { if (!pedir.p) { pedir.p = true; requestAnimationFrame(() => { pedir.p = false; dibujar(); }); } }
+
+  /* ---------- Estado derivado ---------- */
+  function generarMuestra() {
+    const r = (() => { let t = 11; return () => { t = (t + 0x6D2B79F5) | 0; let x = Math.imul(t ^ (t >>> 15), 1 | t); x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x; return ((x ^ (x >>> 14)) >>> 0) / 4294967296; }; })();
+    const cand = [[], []];
+    for (let j = 0; j < A.ROWS; j++) for (let i = 0; i < A.COLS; i++) {
+      const k = A.idx(i, j);
+      if (der.bloqueo[k]) continue;
+      let frente = false;
+      for (let dy = -4; dy <= 4 && !frente; dy++) for (let dx = -4; dx <= 4; dx++) {
+        const x = i + dx, y = j + dy;
+        if (x >= 0 && y >= 0 && x < A.COLS && y < A.ROWS && der.lado[A.idx(x, y)] !== der.lado[k]) { frente = true; break; }
+      }
+      if (frente) cand[der.lado[k] > 0 ? 0 : 1].push([i, j]);
+    }
+    muestra = [];
+    const pesos = [1, 2, 0, 5, 2];
+    const tomar = () => { let t = r() * 10; for (let c = 0; c < 5; c++) { t -= pesos[c]; if (t <= 0) return c; } return 3; };
+    cand.forEach((l, q) => {
+      for (let n = 0; n < Math.min(34, l.length); n++) {
+        const [i, j] = l[Math.floor(r() * l.length)];
+        muestra.push({ x: (i + .2 + r() * .6) * A.CELDA, y: (j + .2 + r() * .6) * A.CELDA, c: tomar(), lado: q ? -1 : 1, gris: q === 1 && r() < .4 });
+      }
+    });
+  }
+  function pintarEstado() {
+    const pct = t => Math.round(100 * der.cuenta[t] / A.N);
+    const filas = [
+      [der.separa ? 'la frontera separa las bases' : (der.avisos.find(a => a.includes('frontera')) || 'la frontera no separa las bases'), !der.separa],
+      [der.hayRuta ? 'hay ruta terrestre entre bases' : 'no hay ruta terrestre entre bases', !der.hayRuta],
+      [`puentes ${der.puentes}`, false],
+      [`agua ${pct(A.AGUA)} % · bosque ${pct(A.BOSQUE)} %`, false],
+      [`montaña ${pct(A.MONTANA)} % · ciudad ${pct(A.CIUDAD)} %`, false],
+    ];
+    if (der.avisos.some(a => a.includes('base está'))) filas.push(['una base está sobre agua', true]);
+    const ul = $('valida');
+    ul.textContent = '';
+    for (const [t, mal] of filas) { const li = document.createElement('li'); li.textContent = t; if (mal) li.className = 'falta'; ul.appendChild(li); }
+    $('deshacer').disabled = !undo.length; $('rehacer').disabled = !redo.length;
+  }
+  function cambio(geometria = true) {
+    der = A.derivar(m);
+    if (geometria) costasCache = A.costas(m);
+    generarMuestra();
+    pintarEstado();
+    capaSucia = sucio = true;
+    pedir();
+    clearTimeout(tGuardar);
+    tGuardar = setTimeout(() => { try { localStorage.setItem(CLAVE, A.aJSON(m)); } catch (_) { /* sin almacenamiento */ } }, 400);
+  }
+  const copia = () => ({ areas: m.areas.slice(), lineas: m.lineas.map(l => ({ t: l.t, g: l.g, p: l.p.slice() })), sigG: m.sigG });
+  function guardarUndo() { undo.push(copia()); if (undo.length > 60) undo.shift(); redo = []; }
+  function restaurar(e) { m.areas = e.areas; m.lineas = e.lineas; m.sigG = e.sigG; cambio(); }
+  function deshacer() { if (undo.length) { redo.push(copia()); restaurar(undo.pop()); } }
+  function rehacer() { if (redo.length) { undo.push(copia()); restaurar(redo.pop()); } }
+  function cargarMapa(n) {
+    m = n; undo = []; redo = [];
+    $('nombre').value = m.nombre;
+    $('simetria').setAttribute('aria-pressed', String(m.simetria));
+    cambio();
+  }
+
+  /* ---------- Herramientas ---------- */
+  function iconoArea(t) {
+    if (t === A.AGUA) return '<svg width="26" height="14" aria-hidden="true"></svg>';
+    return `<svg width="26" height="14" viewBox="-13 -7 26 14" aria-hidden="true">${GLIFO[t].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.3" fill="currentColor"/>`).join('')}</svg>`;
+  }
+  function iconoLinea(t) {
+    if (!t) return '<svg width="26" height="14" viewBox="-13 -7 26 14" aria-hidden="true"><path d="M-5-5 5 5M5-5-5 5" stroke="currentColor" fill="none"/></svg>';
+    const r = RITMO[t], k = 26 / (t === 'frontera' ? 30 : t === 'camino' ? 30 : 26);
+    let o = '';
+    for (let c = 0; c * r.c < 30; c++) for (const [d, rad] of r.m) { const x = (c * r.c + d) * k - 13; if (x <= 13) o += `<circle cx="${x.toFixed(1)}" cy="0" r="${(rad * .9).toFixed(2)}" fill="currentColor"/>`; }
+    return `<svg width="26" height="14" viewBox="-13 -7 26 14" aria-hidden="true">${o}</svg>`;
+  }
+  const botones = new Map();
+  function crearBoton(h, cont, icono) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'herr'; b.setAttribute('role', 'radio');
+    b.innerHTML = `${icono}<span>${h.n}</span><kbd>${h.k}</kbd>`;
+    b.addEventListener('click', e => { elegir(h.id); if (e.detail) b.blur(); });
+    cont.appendChild(b);
+    botones.set(h.id, b);
+  }
+  AREAS.forEach(h => crearBoton(h, $('herrAreas'), iconoArea(h.tipo)));
+  LINEAS.forEach(h => crearBoton(h, $('herrLineas'), iconoLinea(h.linea)));
+  function elegir(id) { herr = id; for (const [k, b] of botones) b.setAttribute('aria-checked', String(k === id)); pedir(); }
+  const tamanos = [...document.querySelectorAll('[data-p]')];
+  function elegirPincel(p) { pincel = clamp(p, 0, 2); tamanos.forEach(b => b.setAttribute('aria-checked', String(+b.dataset.p === pincel))); pedir(); }
+  tamanos.forEach(b => b.addEventListener('click', e => { elegirPincel(+b.dataset.p); if (e.detail) b.blur(); }));
+
+  /* ---------- Entrada ---------- */
+  function pintarHasta(p) {
+    const h = HERR.find(x => x.id === herr), a = trazo.ult, d = Math.hypot(p.x - a.x, p.y - a.y), paso = Math.max(4, PINCEL[pincel] / 2), n = Math.max(1, Math.ceil(d / paso));
+    for (let i = 1; i <= n; i++) A.pintar(m, a.x + (p.x - a.x) * i / n, a.y + (p.y - a.y) * i / n, PINCEL[pincel], h.tipo);
+    trazo.ult = p;
+  }
+  cv.addEventListener('contextmenu', e => e.preventDefault());
+  cv.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'touch') {
+      toques.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (toques.size === 2) {
+        // El segundo dedo convierte el gesto en desplazamiento: se descarta lo que empezó el primero.
+        if (trazo && trazo.k === 'area') deshacer();
+        trazo = null;
+        const [a, b] = [...toques.values()];
+        pinza = { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        return;
+      }
+      if (toques.size > 2) return;
+    }
+    if (e.button === 1 || (e.button === 0 && espacio)) {
+      e.preventDefault();
+      try { cv.setPointerCapture(e.pointerId); } catch (_) { /* puntero ya liberado */ }
+      paneo = { x: e.clientX, y: e.clientY };
+      return;
+    }
+    if (e.button !== 0) return;
+    try { cv.setPointerCapture(e.pointerId); } catch (_) { /* puntero ya liberado */ }
+    const p = aMundo(e), h = HERR.find(x => x.id === herr);
+    if (h.tipo !== undefined) {
+      guardarUndo();
+      A.pintar(m, p.x, p.y, PINCEL[pincel], h.tipo);
+      trazo = { k: 'area', ult: p };
+      cambio();
+    } else if (h.linea) {
+      trazo = { k: 'linea', p: [p.x, p.y] };
+    } else {
+      guardarUndo();
+      if (A.quitarLineaCerca(m, p.x, p.y, 10)) cambio(); else { undo.pop(); pintarEstado(); }
+    }
+  });
+  cv.addEventListener('pointermove', e => {
+    if (e.pointerType === 'touch' && toques.has(e.pointerId)) {
+      toques.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinza && toques.size === 2) {
+        const [a, b] = [...toques.values()], d = Math.hypot(a.x - b.x, a.y - b.y), x = (a.x + b.x) / 2, y = (a.y + b.y) / 2;
+        moverVista(x - pinza.x, y - pinza.y);
+        pinza.x = x; pinza.y = y;
+        if (d / pinza.d > 1.3) { cambiarZoom(1, x, y); pinza.d = d; } else if (d / pinza.d < .77) { cambiarZoom(-1, x, y); pinza.d = d; }
+        return;
+      }
+    }
+    if (paneo) { moverVista(e.clientX - paneo.x, e.clientY - paneo.y); paneo.x = e.clientX; paneo.y = e.clientY; return; }
+    const p = aMundo(e);
+    cursor = e.pointerType === 'mouse' ? p : null;
+    if (trazo && trazo.k === 'area') { pintarHasta(p); cambio(); }
+    else if (trazo && trazo.k === 'linea') {
+      const q = trazo.p, n = q.length;
+      if (Math.hypot(p.x - q[n - 2], p.y - q[n - 1]) >= 3) q.push(p.x, p.y);
+    }
+    pedir();
+  });
+  const soltar = e => {
+    if (e.pointerType === 'touch') { toques.delete(e.pointerId); if (toques.size < 2) pinza = null; }
+    if (paneo) { paneo = null; return; }
+    if (trazo && trazo.k === 'linea' && e.type === 'pointerup') {
+      const q = trazo.p;
+      let largo = 0;
+      for (let k = 0; k + 3 < q.length; k += 2) largo += Math.hypot(q[k + 2] - q[k], q[k + 3] - q[k + 1]);
+      if (largo >= 12) { guardarUndo(); A.agregarLinea(m, HERR.find(x => x.id === herr).linea, A.limpiarTrazo(q, m.simetria)); trazo = null; cambio(); }
+    }
+    trazo = null;
+    pedir();
+  };
+  cv.addEventListener('pointerup', soltar);
+  cv.addEventListener('pointercancel', soltar);
+  cv.addEventListener('pointerleave', () => { cursor = null; pedir(); });
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    const now = performance.now();
+    if (now < ruedaHasta || !e.deltaY) return;
+    ruedaHasta = now + 160;
+    const r = cv.getBoundingClientRect();
+    cambiarZoom(e.deltaY < 0 ? 1 : -1, e.clientX - r.left, e.clientY - r.top);
+  }, { passive: false });
+
+  const conClic = (id, fn) => $(id).addEventListener('click', e => { fn(); if (e.detail) e.currentTarget.blur(); });
+  function alternarSimetria() { m.simetria = !m.simetria; $('simetria').setAttribute('aria-pressed', String(m.simetria)); cambio(false); }
+  function alternarJuego() { capaJuego = !capaJuego; $('juego').setAttribute('aria-pressed', String(capaJuego)); capaSucia = true; pedir(); }
+  conClic('titulo', () => location.reload());
+  conClic('simetria', alternarSimetria);
+  conClic('juego', alternarJuego);
+  conClic('deshacer', deshacer);
+  conClic('rehacer', rehacer);
+  conClic('ejemplo', () => { guardarUndo(); const e = A.ejemplo(); m.areas = e.areas; m.lineas = e.lineas; m.sigG = e.sigG; m.nombre = e.nombre; m.simetria = e.simetria; $('nombre').value = m.nombre; $('simetria').setAttribute('aria-pressed', String(m.simetria)); cambio(); });
+  conClic('limpiar', () => { guardarUndo(); const e = A.crearVacio(); m.areas = e.areas; m.lineas = e.lineas; m.sigG = e.sigG; cambio(); });
+  $('nombre').addEventListener('input', e => { m.nombre = e.target.value; cambio(false); });
+
+  /* ---------- Guardar y cargar ---------- */
+  const msg = t => { $('msgJson').textContent = t; };
+  function abrirJson() { $('json').value = A.aJSON(m); msg(''); $('hojaJson').hidden = false; $('json').focus(); $('json').select(); }
+  function cerrarJson() { $('hojaJson').hidden = true; }
+  function intentarCargar(txt) {
+    try { const n = A.deJSON(txt); guardarUndo(); const u = undo; cargarMapa(n); undo = u; pintarEstado(); msg(`Mapa cargado: ${n.nombre}`); return true; }
+    catch (err) { msg(err.message); return false; }
+  }
+  conClic('abrirJson', abrirJson);
+  conClic('cerrarJson', cerrarJson);
+  conClic('cargar', () => { if (intentarCargar($('json').value)) cerrarJson(); });
+  conClic('copiar', () => {
+    const t = $('json').value;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(() => msg('Copiado.'), () => { $('json').select(); msg('El navegador no dejó copiar. El texto quedó seleccionado.'); });
+    } else { $('json').select(); msg('El texto quedó seleccionado.'); }
+  });
+  conClic('elegirArchivo', () => $('archivo').click());
+  $('archivo').addEventListener('change', e => {
+    const a = e.target.files && e.target.files[0];
+    if (!a) return;
+    const r = new FileReader();
+    r.onload = () => { $('json').value = String(r.result); msg('Archivo leído. Pulsa cargar.'); };
+    r.onerror = () => msg('No pude leer ese archivo.');
+    r.readAsText(a);
+    e.target.value = '';
+  });
+  // La descarga solo existe fuera de un marco; dentro de un artefacto el navegador la bloquea.
+  $('bajar').hidden = window.top !== window.self;
+  conClic('bajar', () => {
+    const b = new Blob([A.aJSON(m)], { type: 'application/json' }), a = document.createElement('a');
+    a.href = URL.createObjectURL(b);
+    a.download = (m.nombre || 'mapa').replace(/[^\w\-áéíóúñ ]+/gi, '').trim().replace(/\s+/g, '-') + '.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+
+  addEventListener('keydown', e => {
+    const t = e.target && e.target.tagName;
+    if (t === 'INPUT' || t === 'TEXTAREA') { if (e.key === 'Escape' && !$('hojaJson').hidden) cerrarJson(); return; }
+    if (e.key === 'Escape' && !$('hojaJson').hidden) { cerrarJson(); return; }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) rehacer(); else deshacer(); return; }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.code === 'Space') { e.preventDefault(); espacio = true; cv.classList.add('mover'); return; }
+    if (e.key.startsWith('Arrow')) { e.preventDefault(); moverVista(e.key === 'ArrowLeft' ? 90 : e.key === 'ArrowRight' ? -90 : 0, e.key === 'ArrowUp' ? 90 : e.key === 'ArrowDown' ? -90 : 0); return; }
+    if (e.key === '+' || e.key === '=') { cambiarZoom(1); return; }
+    if (e.key === '-') { cambiarZoom(-1); return; }
+    const h = HERR.find(x => x.k === e.key);
+    if (h) { elegir(h.id); return; }
+    const k = e.key.toLowerCase();
+    if (e.key === '[') elegirPincel(pincel - 1);
+    else if (e.key === ']') elegirPincel(pincel + 1);
+    else if (k === 's') alternarSimetria();
+    else if (k === 'j') alternarJuego();
+  });
+
+  addEventListener('keyup', e => { if (e.code === 'Space') { espacio = false; cv.classList.remove('mover'); } });
+  addEventListener('blur', () => { espacio = false; cv.classList.remove('mover'); });
+  conClic('zMas', () => cambiarZoom(1));
+  conClic('zMenos', () => cambiarZoom(-1));
+
+  /* ---------- Inicio ---------- */
+  new ResizeObserver(medir).observe($('mesa'));
+  let inicial = null;
+  try { const g = localStorage.getItem(CLAVE); if (g) inicial = A.deJSON(g); } catch (_) { inicial = null; }
+  elegir(herr); elegirPincel(pincel);
+  medir();
+  cargarMapa(inicial || A.ejemplo());
+  window.atlas = { get mapa() { return m; }, get der() { return der; }, A };
+})();
+
+</script>
+</body>
+</html>
