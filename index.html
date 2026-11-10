@@ -26,6 +26,17 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
   top: calc(10px + env(safe-area-inset-top, 0px)); left: calc(12px + env(safe-area-inset-left, 0px)); }
 #titulo { pointer-events: auto; justify-self: start; font-size: var(--fs-2); font-weight: 600; letter-spacing: .04em; }
 #estado { color: var(--gris); font-size: var(--fs-0); font-variant-numeric: tabular-nums; }
+#tuto { position: fixed; z-index: 4; left: 50%; top: 40px; transform: translateX(-50%); width: min(56ch, calc(100vw - 24px)); background: rgba(0, 0, 0, .94); border: 1px solid var(--hueso); border-radius: 2px; padding: 8px 12px 10px; color: var(--hueso); font-size: var(--fs-1); }
+#tuto .cab { color: var(--gris); font-size: var(--fs-0); letter-spacing: .12em; text-transform: uppercase; }
+#tuto p { margin: 4px 0 8px; line-height: 1.45; }
+#tuto .pie { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+#tuto .salir { color: var(--gris); font-size: var(--fs-0); text-decoration: underline; padding: 4px; }
+#tuto .salir:hover { color: var(--hueso); }
+.foco { outline: 2px solid var(--hueso); outline-offset: 2px; animation: foco 1s ease-in-out infinite alternate; }
+@keyframes foco { to { outline-offset: 5px; outline-color: transparent; } }
+@media (prefers-reduced-motion: reduce) { .foco { animation: none; } }
+.acciones.novato #tutorial { order: -1; }
+.acciones:not(.novato) #tutorial { color: var(--hueso); background: transparent; border: 1px solid var(--tenue); }
 #menu { position: fixed; left: 0; top: 0; z-index: 5; width: 250px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow-y: auto; background: var(--panel); border: 1px solid var(--tenue); border-radius: 2px; padding: 6px; display: grid; gap: 1px; font-variant-numeric: tabular-nums; }
 #menu .cab { display: grid; padding: 2px 4px 5px; }
 #menu .cab b { font-weight: 600; font-size: var(--fs-1); }
@@ -175,6 +186,7 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
 
 <div id="marcador" role="status" aria-label="Ciudades"></div>
 
+<aside id="tuto" role="status" aria-live="polite" aria-label="Tutorial" hidden></aside>
 <div id="menu" role="menu" aria-label="Acciones en este lugar" hidden></div>
 <section id="plan" role="dialog" aria-label="Planificar misión" hidden></section>
 
@@ -262,7 +274,7 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
       </div>
       <div id="msgMapa" role="status"></div>
     </div>
-    <div class="acciones"><button id="empezar" class="accion" type="button">Empezar</button><button id="continuar" class="accion" type="button" hidden>Continuar partida</button></div>
+    <div class="acciones"><button id="empezar" class="accion" type="button">Empezar</button><button id="tutorial" class="accion" type="button">Tutorial</button><button id="continuar" class="accion" type="button" hidden>Continuar partida</button></div>
   </div>
 </section>
 
@@ -701,7 +713,7 @@ const DOCTRINA = (() => {
     // Agotamiento de guerra: 0 es moral intacta, 1 es el colapso del país.
     agotamiento: { tiempo: 0.00002, tierra: 0.006, avion: 0.0025, dron: 0.0005, ciudad: 0.04, ingreso: 0.4, moral: 0.5, avisos: [0.5, 0.75, 0.9] },
     // Cerco: lo que queda cortado del suministro avisa, y si nadie lo socorre, se rinde.
-    cerco: { aviso: 45, unidad: 300, ciudad: 360, linea: 30 },
+    cerco: { aviso: 45, unidad: 300, ciudad: 360, linea: 30, gracia: 300 },
     creditos: { inicio: 900 },
     // Compañías que un bando puede sostener: el territorio da la logística.
     ejercito: { base: 12, porCiudad: 1 },
@@ -1354,7 +1366,8 @@ const DOCTRINA = (() => {
           u.guar = Math.min(tope, u.guar + C.regenera); u.moral = Math.min(1 - DATOS.agotamiento.moral * Math.min(1, st.agot[s]), u.moral + .002); u.dano = Math.max(0, u.dano - C.repara);
         } else if (!sum) { u.guar = Math.max(0, u.guar - .02); u.moral = Math.max(.1, u.moral - .002); }
         // Cercada: avisa, y si el enemigo ya la abastece y nadie rompe el cerco, capitula.
-        if (sum || u.capital) u.cerco = 0;
+        // Recién tomada: el territorio de alrededor aún no cambió de manos; no cuenta como cerco.
+        if (sum || u.capital || st.t - u.desde < K.gracia * 30) u.cerco = 0;
         else {
           u.cerco++;
           if (u.cerco === K.aviso) st.ev.push({ k: 'cercada', id: u.id, x: u.x, y: u.y, s, t: st.t });
@@ -2234,6 +2247,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     cerrarMenu(); cerrarPlan(); seleccion = new Set(); grupos = {};
     acu = { pro: S.NOMBRES.map(() => 0), ene: S.NOMBRES.map(() => 0), lugar: null };
     marcas = { bajas: 0, alertaT: -1, sat: {}, conGod: false };
+    tuto = null; consejoAbierto = false; pintarTuto();
     $('registro').textContent = ''; $('vel').textContent = '×1'; $('final').hidden = true; $('titulo').textContent = 'doctrina';
     medir(); irABase(); pintarSeleccion(); hud();
   }
@@ -2242,6 +2256,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     st = g.st; iniciarEstado();
   }
   function guardar(avisar) {
+    if (tuto) { if (avisar) aviso('el tutorial no se guarda'); return; }
     if (st.fin) { try { localStorage.removeItem(CLAVE_GUARDADO); } catch (_) { /* sin almacenamiento */ } return; }
     try {
       localStorage.setItem(CLAVE_GUARDADO, JSON.stringify({ ia: g.ias[1] ? g.ias[1].nombre : 'equilibrada', estado: S.serializar(st) }));
@@ -2554,9 +2569,9 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     } else if (e.k === 'batalla') {
       const u = st.urbes[e.id];
       if (u.dueno > 0 || e.a === 0) { registrar(`Batalla por ${nom(e.id)}`, true, e); faro(e.x, e.y, 'combate'); frenar(`batalla por ${nom(e.id)}`); }
-    } else if (e.k === 'revuelta' && e.s === 0) { registrar(`Revuelta en ${nom(e.id)}`, true, e); faro(e.x, e.y, 'base'); Sonido.sonar('alarma'); frenar(`revuelta en ${nom(e.id)}`); }
+    } else if (e.k === 'revuelta' && e.s === 0) { registrar(`Revuelta en ${nom(e.id)}`, true, e); faro(e.x, e.y, 'base'); Sonido.sonar('alarma'); frenar(`revuelta en ${nom(e.id)}`); consejo('revuelta', 'Una ciudad ocupada sin guarnición acumula resistencia y se subleva. Selecciona una compañía, haz clic en la ciudad y elige «Guarnecer».'); }
     else if (e.k === 'cercada') {
-      if (e.s === 0) { registrar(`${nom(e.id)} cercada: capitula en ${min(K.ciudad - K.aviso)} min si no llega suministro`, true, e); faro(e.x, e.y, 'base'); Sonido.sonar('alarma'); frenar(`${nom(e.id)} cercada`); }
+      if (e.s === 0) { registrar(`${nom(e.id)} cercada: capitula en ${min(K.ciudad - K.aviso)} min si no llega suministro`, true, e); faro(e.x, e.y, 'base'); Sonido.sonar('alarma'); frenar(`${nom(e.id)} cercada`); consejo('cercada', 'Una ciudad cortada de tu capital y tus depósitos capitula a los seis minutos. Recupera el territorio que la une a los tuyos o construye un depósito junto a ella.'); }
       else registrar(`${nom(e.id)} quedó cercada`, false, e);
     } else if (e.k === 'capitula') registrar(e.s === 0 ? `${nom(e.id)} capituló por cerco` : `${nom(e.id)} capituló`, true, e);
     else if (e.k === 'moral') {
@@ -2564,10 +2579,10 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       if (e.s === 0) { registrar(`La moral del país baja a ${p} %: si llega a cero, colapsas`, true); Sonido.sonar('alarma'); frenar(`moral en ${p} %`); }
       else registrar(`La moral enemiga baja a ${p} %`, false);
     }
-    else if (e.k === 'aislada' && e.s === 0) { registrar(`${S.NOMBRES[e.c]} aislada: se rinde en ${min(K.unidad - K.aviso)} min`, true, e); faro(e.x, e.y, 'combate'); frenar('compañía aislada'); }
+    else if (e.k === 'aislada' && e.s === 0) { registrar(`${S.NOMBRES[e.c]} aislada: se rinde en ${min(K.unidad - K.aviso)} min`, true, e); faro(e.x, e.y, 'combate'); frenar('compañía aislada'); consejo('aislada', 'Una compañía detenida lejos de tu línea de abastecimiento se rinde a los cinco minutos. Muévela de vuelta hacia tu territorio, o construye un depósito cerca.'); }
     else if (e.k === 'rendicion' && e.s === 0) { registrar(`Una compañía de ${S.NOMBRES[e.c]} se rindió, cercada`, true, e); frenar('una compañía se rindió'); }
     else if (e.k === 'pacificada' && e.s === 0) registrar(`${nom(e.id)} pacificada`, false, e);
-    else if (e.k === 'sinAire' && e.s === 0) { registrar('Sin aire disponible para un área de control', true); frenar('sin aire para un área'); }
+    else if (e.k === 'sinAire' && e.s === 0) { registrar('Sin aire disponible para un área de control', true); frenar('sin aire para un área'); consejo('sinAire', 'Un área de control solo defiende si quedan aviones libres en una pista cercana. Compra cazas en la capital o construye otra pista.'); }
     else if (e.k === 'lista' && e.s === 0) registrar(`${S.NOMBRES[e.c]} lista`, false, e);
     else if (e.k === 'parte' && e.s === 0) {
       const T = S.DATOS.misiones[e.tipo], ds = [e.res.impactos ? `${e.res.impactos} impactos` : 'sin impactos', e.res.perdidas ? `${e.res.perdidas} ${e.res.perdidas === 1 ? 'pérdida' : 'pérdidas'}` : 'sin pérdidas'];
@@ -2762,6 +2777,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     dibujarSatelites();
     dibujarCursor();
     enPantalla(ctx);
+    dibujarAncla();
     dibujarFlechas();
     pintarMini(v, now);
   }
@@ -3132,6 +3148,8 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       $('bloqueMapa').hidden = iniciada;
       $('empezar').textContent = iniciada ? 'Seguir' : 'Empezar';
       $('continuar').hidden = iniciada || !haySaved();
+      $('tutorial').hidden = iniciada; $('tutorial').textContent = recuerda(CLAVE_TUTO) ? 'Tutorial' : 'Tutorial · 10 min';
+      $('tutorial').parentNode.classList.toggle('novato', !recuerda(CLAVE_TUTO));
     }
   }
   function empezar() {
@@ -3152,6 +3170,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
   conClic('caja', () => alternarCaja());
   conClic('ayuda', () => abrirParte($('parte').hidden));
   conClic('empezar', empezar);
+  conClic('tutorial', iniciarTutorial);
   conClic('continuar', () => { continuar(); });
   conClic('guardar', () => guardar(true));
   conClic('otra', () => { nueva(); empezar(); });
@@ -3317,6 +3336,122 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
   }
 
   let tHud = 0, cerrado = false;
+  // ── Tutorial: una partida real con el enemigo quieto. Cada paso avanza cuando haces la acción. ──
+  const CLAVE_TUTO = 'doctrina.tutorial';
+  let tuto = null, consejoAbierto = false;
+  const recuerda = k => { try { return !!localStorage.getItem(k); } catch (_) { return false; } };
+  const anota = k => { try { localStorage.setItem(k, '1'); } catch (_) { /* sin almacenamiento */ } };
+  const miTierra = () => st.unidades.filter(u => !u.dead && u.s === 0 && !u.aire);
+  const PASOS = [
+    { t: 'Moverse', x: () => 'Arrastra el mapa para desplazarte. El minimapa, abajo a la izquierda, te lleva a cualquier punto.',
+      entra: T => { T.cam = [ox, oy]; }, listo: T => Math.hypot(ox - T.cam[0], oy - T.cam[1]) > 120 },
+    { t: 'Zoom', x: () => 'Acerca o aleja con la rueda, pellizcando, o con los botones − y +.', foco: ['zMas', 'zMenos'],
+      entra: T => { T.niv = nivel; }, listo: T => nivel !== T.niv },
+    { t: 'Seleccionar', x: T => `Los puntos rellenos junto a ${T.F.nombre} son tus compañías: diez soldados y su camión. Haz clic en una.`,
+      entra: T => { cerrarMenu(); limpiarSeleccion(); irA(T.F); }, ancla: T => T.u0, listo: () => seleccion.size > 0 },
+    { t: 'Mover', x: () => 'Ahora haz clic en un punto cercano del mapa y elige «Mover aquí». Los soldados suben al camión, viajan y bajan al llegar.',
+      ancla: T => ({ x: T.F.x - 130, y: T.F.y + 110 }), listo: () => miTierra().some(u => u.st === S.EMBARCANDO || u.st === S.MARCHA) },
+    { t: 'Acelerar', x: () => 'El camión tarda. Pulsa V, o el botón ×1, para acelerar el tiempo. Espacio pausa: en pausa también puedes dar órdenes.', foco: ['vel'],
+      listo: () => vel > 1 },
+    { t: 'Área de control', x: T => `Las áreas defienden solas. Haz clic en ${T.F.nombre} y, bajo «Designar área de control», elige «media».`,
+      entra: T => { limpiarSeleccion(); irA(T.F); }, ancla: T => T.F, listo: () => st.zonas.some(z => z.s === 0) },
+    { t: 'Defensa automática', x: () => 'Viene un avión enemigo. No des ninguna orden: tus cazas (azules) despegan solos porque hay un área y aviones libres.',
+      entra: T => {
+        const p = st.defensas.find(d => d.s === 1 && d.t === S.PISTA); T.pista = p ? [p, p.x, p.y] : null; T.t0 = st.t;
+        if (p) { p.x = T.E.x + 40; p.y = T.E.y; S.aplicar(st, 1, { t: 'mision', tipo: 'golpe', x: T.F.x, y: T.F.y, paquete: { [S.ATAQUE]: 1 } }); }
+      },
+      sale: T => { if (T.pista) { T.pista[0].x = T.pista[1]; T.pista[0].y = T.pista[2]; T.pista = null; } },
+      ancla: T => T.F, listo: T => st.unidades.some(u => u.s === 0 && u.aire && u.c === S.CAZA) || st.t - T.t0 > 30 * 90 },
+    { t: 'Misión aérea', x: T => `Ahora ataca tú. Haz clic en ${T.E.nombre}, la ciudad enemiga (cuadrado hueco), elige «bombardeo», suma aparatos con + y pulsa «Lanzar». El juego se pausa mientras planificas.`,
+      entra: T => { cerrarMenu(); limpiarSeleccion(); irA(T.E); }, ancla: T => T.E,
+      listo: T => $('plan').hidden && st.misiones.some(m => m.s === 0 && m.tipo !== 'asalto' && m.tipo !== 'refuerzo') },
+    { t: 'Asalto', x: T => `Mientras vuelan, manda la tropa. Pulsa «todas» para seleccionar tus compañías, haz clic en ${T.E.nombre} y elige «Asaltar la ciudad».`, foco: ['todas'],
+      ancla: T => T.E, listo: T => st.misiones.some(m => m.s === 0 && m.tipo === 'asalto') || miTierra().some(u => Math.hypot(u.tx - T.E.x, u.ty - T.E.y) < 150) },
+    { t: 'Batalla por barrios', x: T => `Los cuadritos de ${T.E.nombre} son sus barrios. Tu tropa los disputa uno a uno y, con la mayoría, la ciudad cae. Acelera con V mientras llegan.`,
+      ancla: T => T.E, listo: T => T.E.dueno > 0 },
+    { t: 'Guarnición y cerco', x: T => `${T.E.nombre} es tuya. Deja siempre alguna compañía dentro: una ciudad ocupada sin guardia se subleva. Y no detengas tropa muy lejos de tu territorio: queda cercada y se rinde.`,
+      boton: 'Entendido' },
+    { t: 'Saltar el tiempo', x: () => 'Pulsa «▸ evento», o N: el juego avanza rápido y se detiene solo cuando pasa algo importante.', foco: ['salto'],
+      listo: () => saltando },
+    { t: 'Cómo se gana', x: () => 'Toma la capital enemiga, mantén dos tercios de las ciudades cinco minutos, o agota la moral enemiga (panel derecho) antes que la tuya. Un clic en terreno propio permite construir defensas; en una ciudad propia, reclutar. El botón ? repite las reglas.',
+      final: true },
+  ];
+  function irA(p) { acabarTrans(); centrar(p.x, p.y); }
+  function iniciarTutorial() {
+    g = S.partida({ seed: 4242, mapa: A.ejemplo(), ia1: null }); st = g.st; iniciarEstado();
+    const mias = st.urbes.filter(u => u.dueno > 0 && !u.capital), ene = st.urbes.filter(u => u.dueno < 0 && !u.capital);
+    let par = null;
+    for (const f of mias) for (const e of ene) { const d = Math.hypot(f.x - e.x, f.y - e.y); if (!par || d < par.d) par = { f, e, d }; }
+    // Parte de tu fuerza ya está en la ciudad del frente, y la ciudad enemiga vecina está poco defendida.
+    const lleva = [...miTierra().filter(u => u.c === S.INF).slice(0, 4), ...miTierra().filter(u => u.c === S.BLI).slice(0, 2)];
+    let a = 0;
+    for (const u of lleva) {
+      let x, y, n = 0;
+      do { x = par.f.x + Math.cos(a) * 52; y = par.f.y + Math.sin(a) * 52; a += .9; } while (!S.destinoValido(st, x, y) && ++n < 12);
+      u.x = u.px = u.tx = x; u.y = u.py = u.ty = y;
+    }
+    st.unidades = st.unidades.filter(u => !(u.s === 1 && !u.aire && Math.hypot(u.x - par.e.x, u.y - par.e.y) < 500));
+    S.indexar(st);
+    tuto = { i: -1, F: par.f, E: par.e, u0: lleva[0] };
+    empezar(); irA(par.f); pasoTutorial(0);
+  }
+  function pasoTutorial(i) {
+    const previo = PASOS[tuto.i]; if (previo && previo.sale) previo.sale(tuto);
+    tuto.i = i; const p = PASOS[i]; if (p.entra) p.entra(tuto);
+    pintarTuto();
+  }
+  function terminarTutorial(seguir) {
+    const previo = tuto && PASOS[tuto.i]; if (previo && previo.sale) previo.sale(tuto);
+    tuto = null; anota(CLAVE_TUTO); pintarTuto();
+    if (seguir) { g.ias[1] = S.iaCrear((st.t ^ st.seed) | 0, 'equilibrada'); aviso('el enemigo despierta'); }
+    else { nueva(); abrirParte(true); }
+  }
+  function vigilarTutorial() {
+    if (!tuto) return;
+    if (st.fin) { tuto = null; pintarTuto(); return; }
+    tuto.E.guar = Math.min(tuto.E.guar, 8);   // la primera ciudad se deja tomar
+    const p = PASOS[tuto.i];
+    if (p.listo && p.listo(tuto)) pasoTutorial(tuto.i + 1);
+  }
+  function pintarTuto() {
+    const caja = $('tuto');
+    document.querySelectorAll('.foco').forEach(e => e.classList.remove('foco'));
+    if (!tuto) { if (!consejoAbierto) caja.hidden = true; return; }
+    consejoAbierto = false;
+    const p = PASOS[tuto.i]; caja.hidden = false; caja.textContent = '';
+    const cab = document.createElement('div'); cab.className = 'cab'; cab.textContent = `tutorial ${tuto.i + 1}/${PASOS.length} · ${p.t}`;
+    const tx = document.createElement('p'); tx.textContent = p.x(tuto);
+    const pie = document.createElement('div'); pie.className = 'pie';
+    const boton = (txt, f, cls) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = txt; if (cls) b.className = cls; b.addEventListener('click', f); pie.appendChild(b); };
+    if (p.boton) boton(p.boton, () => pasoTutorial(tuto.i + 1), 'accion');
+    if (p.final) { boton('Seguir esta partida', () => terminarTutorial(true), 'accion'); boton('Partida nueva', () => terminarTutorial(false), 'accion'); }
+    else boton('saltar tutorial', () => terminarTutorial(false), 'salir');
+    caja.append(cab, tx, pie);
+    for (const id of p.foco || []) $(id).classList.add('foco');
+  }
+  // Consejo suelto: la primera vez que ocurre algo que el tutorial no cubre.
+  function consejo(k, texto) {
+    if (tuto || consejoAbierto || recuerda('doctrina.consejo.' + k)) return;
+    anota('doctrina.consejo.' + k); consejoAbierto = true;
+    const caja = $('tuto'); caja.hidden = false; caja.textContent = '';
+    const cab = document.createElement('div'); cab.className = 'cab'; cab.textContent = 'consejo';
+    const tx = document.createElement('p'); tx.textContent = texto;
+    const pie = document.createElement('div'); pie.className = 'pie';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'accion'; b.textContent = 'Entendido';
+    b.addEventListener('click', () => { consejoAbierto = false; caja.hidden = true; }); pie.appendChild(b);
+    caja.append(cab, tx, pie);
+  }
+  function dibujarAncla() {
+    const p = tuto && PASOS[tuto.i], q = p && p.ancla && p.ancla(tuto);
+    if (!q) return;
+    const px = ox + q.x * s, py = oy + q.y * s, f = calma ? .5 : (performance.now() / 900) % 1;
+    ctx.save(); ctx.strokeStyle = '#f2efe6'; ctx.lineWidth = 1.5;
+    ctx.globalAlpha = 1 - f; ctx.beginPath(); ctx.arc(px, py, 16 + f * 26, 0, 6.2832); ctx.stroke();
+    ctx.globalAlpha = .9; ctx.beginPath(); ctx.arc(px, py, 16, 0, 6.2832); ctx.stroke();
+    ctx.restore();
+    if (px < 0 || py < 0 || px > cw || py > ch) faro(q.x, q.y, 'ciudad', 'tuto');
+  }
+
   function cuadro(now) {
     const dt = Math.min(.25, (now - ult) / 1000); ult = now;
     avanzarTrans(now);
@@ -3332,7 +3467,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     }
     if (st.fin && !cerrado) { cerrado = true; cerrar(); } else if (!st.fin) cerrado = false;
     dibujar(corriendo ? Math.min(1, acum / S.DT) : 1, now);
-    if (now - tHud > 200) { tHud = now; hud(); }
+    if (now - tHud > 200) { tHud = now; hud(); vigilarTutorial(); }
     requestAnimationFrame(cuadro);
   }
 
