@@ -156,7 +156,7 @@
     const mapa = A.aJSON({ nombre: st.mapa.nombre, areas: st.mapa.areas, lineas: st.mapa.lineas, simetria: false, sigG: 1 });
     const misiones = st.misiones.map(m => ({ ...m, pend: m.pend.map(p => ({ did: p.d.id, hi: p.d.hangar.indexOf(p.h), c: p.c, rol: p.rol, sale: p.sale })) }));
     return JSON.stringify({ formato: 'doctrina-partida', v: 1, mapa, t: st.t, sem: st.sem, seed: st.seed, sigId: st.sigId, sigDef: st.sigDef, sigM: st.sigM, sigZ: st.sigZ, god: st.god, fin: st.fin,
-      agot: st.agot, modo: st.modo, obras: st.obras, abastos: st.abastos, tormenta: st.tormenta, doctrina: st.doctrina, doctrinaPend: st.doctrinaPend, unidades: st.unidades, defensas: st.defensas, zonas: st.zonas, misiones, colas: st.colas, creditos: st.creditos, urbes: st.urbes, conq: st.conq, stats: st.stats, intel: st.intel,
+      agot: st.agot, modo: st.modo, obras: st.obras, reunion: st.reunion, abastos: st.abastos, tormenta: st.tormenta, doctrina: st.doctrina, doctrinaPend: st.doctrinaPend, unidades: st.unidades, defensas: st.defensas, zonas: st.zonas, misiones, colas: st.colas, creditos: st.creditos, urbes: st.urbes, conq: st.conq, stats: st.stats, intel: st.intel,
       fotos: st.fotos.map(m => [...m.values()]), memDef: st.memDef.map(m => [...m.values()]), alertas: st.alertas,
       ctrl: aB64(st.ter.ctrl), mem: st.mem.map(aB64), memRoto: st.memRoto.map(aB64), rotos: st.rotos.map(k => [k, st.roto[k]]) });
   }
@@ -164,9 +164,11 @@
     const o = JSON.parse(txt);
     if (!o || o.formato !== 'doctrina-partida') throw new Error('No es una partida guardada de doctrina.');
     const st = crear({ seed: o.seed, mapa: A.deJSON(o.mapa) });
-    for (const k of ['t', 'sem', 'sigId', 'sigDef', 'sigM', 'sigZ', 'god', 'fin', 'unidades', 'defensas', 'zonas', 'colas', 'creditos', 'conq', 'agot', 'modo', 'obras', 'despliegue', 'abastos', 'tormenta', 'doctrina', 'doctrinaPend', 'stats', 'intel', 'alertas']) st[k] = o[k];
+    for (const k of ['t', 'sem', 'sigId', 'sigDef', 'sigM', 'sigZ', 'god', 'fin', 'unidades', 'defensas', 'zonas', 'colas', 'creditos', 'conq', 'agot', 'modo', 'obras', 'reunion', 'despliegue', 'abastos', 'tormenta', 'doctrina', 'doctrinaPend', 'stats', 'intel', 'alertas']) st[k] = o[k];
     // Partidas guardadas antes del cerco y el agotamiento.
     st.agot = o.agot || [0, 0]; for (const u of st.unidades) { u.sinSum = u.sinSum || 0; u.fort = u.fort || 0; u.delata = u.delata || 0; u.rota = !!u.rota; if (u.mun === undefined) { u.mun = 1; u.comb = 1; } }
+    if (!o.reunion) st.reunion = [{}, {}];
+    for (const u of st.unidades) u.grupo = u.grupo || 0;
     if (!o.obras) { st.obras = [0, 0]; st.modo = o.modo || null; }
     if (!o.doctrina) { st.doctrina = [0, 1].map(() => ({ ...DATOS.doctrina.inicial, objetivos: [] })); st.doctrinaPend = [null, null]; }
     st.abastos = o.abastos || [DATOS.abastos.reserva.inicio, DATOS.abastos.reserva.inicio]; st.tormenta = o.tormenta || 0;

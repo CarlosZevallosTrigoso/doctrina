@@ -50,7 +50,8 @@
   let mapaActual = A.ejemplo(), iniciada = false, puentesUI = [];
   let cw = 1, ch = 1, dpr = 1, sx = 1, sy = 1, s = 1, ox = 0, oy = 0, fp = 1, capaT = -1, gesto = null, cursor = null, cursorP = null, avisoHasta = 0, confirma = 0;
   let trazos = new Map(), fx = [], generacion = 0, marca = null;
-  let seleccion = new Set(), grupos = {}, acu, marcas;
+  let seleccion = new Set(), acu, marcas;
+  let formando = null, ultimoGrupo = { n: 0, ms: 0 };   // grupo que se está formando
   let niveles = [1, 2, 3, 4], nivel = 2, trans = null, horno = null, pinza = null, faros = [], flechas = [];
   let miniT = -1, miniU = 0, miniCam = '', modoCaja = false, ruedaHasta = 0, tGuardado = 0, pausaPorPlan = false, saltando = false, velAntes = 1;
   const teclas = new Set(), toques = new Map();
@@ -153,7 +154,7 @@
     iniciada = false; acum = 0; vel = 1; saltando = false; gesto = null; horno = null; trans = null; faros = []; flechas = []; miniT = -1; nivel = 2;
     puentesUI = st.mapa.der.centrosPuente.map(c => ({ x: c.x, y: c.y, celdas: st.puentes.filter(k => { const i = k % st.ter.cols, j = (k - i) / st.ter.cols; return Math.hypot((i + .5) * st.ter.size - c.x, (j + .5) * st.ter.size - c.y) < 26; }) }));
     trazos = new Map(); fx = []; capaT = -1; marca = null;
-    cerrarMenu(); cerrarPlan(); seleccion = new Set(); grupos = {};
+    cerrarMenu(); cerrarPlan(); seleccion = new Set(); formando = null; $('grupoPanel').hidden = true;
     acu = { pro: S.NOMBRES.map(() => 0), ene: S.NOMBRES.map(() => 0), lugar: null };
     marcas = { bajas: 0, alertaT: -1, sat: {}, conGod: false };
     tuto = null; consejoAbierto = false; eraNoche = null; pintarTuto(); $('despliegue').hidden = true; $('panelMando').hidden = true;
@@ -469,6 +470,11 @@
     ctx.strokeStyle = GRIS; ctx.lineWidth = 1; ctx.stroke(trincheras);
     ctx.lineWidth = 1.4; ctx.stroke(colas);
     ctx.strokeStyle = HUESO; ctx.lineWidth = 1.3; ctx.stroke(arcos); ctx.strokeStyle = COL[S.MISIL]; ctx.stroke(arcosBajos);
+    if (det) {
+      // Número de grupo junto a cada unidad agrupada.
+      ctx.fillStyle = GRIS; ctx.font = `8px ${MONO}`; ctx.textAlign = 'left';
+      for (const u of v.propias) if (!u.aire && u.grupo && enVista(X(u.x), Y(u.y))) ctx.fillText(u.grupo === 10 ? '0' : String(u.grupo), X(u.x) + 7 * ut, Y(u.y) + 9 * ut);
+    }
     if (aisladas.length) {
       ctx.strokeStyle = COL[S.MISIL]; ctx.fillStyle = COL[S.MISIL]; ctx.lineWidth = 1.1; ctx.setLineDash([3, 3]); ctx.font = `9px ${MONO}`; ctx.textAlign = 'center';
       for (const [x, y, f, n] of aisladas) { ctx.beginPath(); ctx.arc(x, y, f + 9, 0, TAU); ctx.stroke(); ctx.fillText(reloj(S.DATOS.cerco.unidad - n), x, y - f - 12); }
@@ -807,6 +813,7 @@
     dibujarCursor();
     enPantalla(ctx);
     dibujarEscala();
+    dibujarGrupo();
     dibujarAncla();
     dibujarFlechas();
     pintarMini(v, now);
@@ -1142,6 +1149,7 @@
     gesto = null;
     if (e.type === 'pointercancel') return;
     if (q.modo === 'nuevo') {
+      if (formando && formando.fase === 'punto') { fijarPuntoGrupo(q.w); return; }
       const L = leerLugar(q.w), h = o => Math.hypot(o.x - q.w.x, o.y - q.w.y);
       // Si el toque cae más cerca de la ciudad que de la tropa, es la ciudad lo que se quiso tocar.
       const t = L.propia && L.urbe && h(L.urbe) < h(L.propia) ? null : L.propia;
@@ -1280,19 +1288,11 @@
     if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
     if (e.key.startsWith('Arrow') && !menuAb) { e.preventDefault(); teclas.add(e.key); return; }
     if (e.key.length === 1) { tecleo = (tecleo + e.key.toLowerCase()).slice(-3); if (tecleo === 'god') { tecleo = ''; alternarGod(); return; } }
-    const grupo = /^(?:Digit|Numpad)([890])$/.exec(e.code);
-    if (grupo) {
-      const n = grupo[1];
-      if (e.shiftKey) { if (seleccion.size) { grupos[n] = [...seleccion]; aviso(`grupo ${n} guardado · ${seleccion.size}`); } }
-      else if (grupos[n]) {
-        const vivos = new Set(propiasTierra().map(u => u.id)), q = grupos[n].filter(id => vivos.has(id));
-        if (q.length) { fijarSeleccion(q); aviso(`grupo ${n} · ${q.length}`); } else aviso(`el grupo ${n} ya no tiene unidades`);
-      }
-      return;
-    }
+    const grupo = /^(?:Digit|Numpad)([0-9])$/.exec(e.code);
+    if (grupo && iniciada && !st.despliegue) { teclaGrupo(grupo[1] === '0' ? 10 : +grupo[1], e.shiftKey); return; }
     const k = e.key.toLowerCase(), enBoton = e.target && e.target.tagName === 'BUTTON';
     if (e.code === 'Space' && !enBoton) { e.preventDefault(); if (!$('parte').hidden) empezar(); else alternarPausa(); }
-    else if (e.key === 'Escape') limpiarSeleccion();
+    else if (e.key === 'Escape') { if (formando) cancelarGrupo(); else limpiarSeleccion(); }
     else if (k === 'v') alternarVel();
     else if (k === 'n') saltar();
     else if (k === 'd') alternarMando();
@@ -1590,6 +1590,88 @@
   }
 
   pintarNivelInicio(); pintarRolInicio();
+  /* ---------- Grupos del 1 al 10 ---------- */
+  const km = (a, b) => Math.hypot(a.x - b.x, a.y - b.y) / 16;
+  const deGrupo = n => propiasTierra().filter(u => u.grupo === n);
+  const estadoDe = u => u.rota ? 'quebrada' : u.comb <= 0.01 ? 'sin combustible' : u.st === S.MARCHA ? 'en marcha' : u.st === S.DESPLEGADA ? (u.fort >= 1 ? 'atrincherada' : 'desplegada') : 'embarcando';
+  function teclaGrupo(n, editar) {
+    const L = deGrupo(n);
+    if (editar || !L.length) { empezarGrupo(n); return; }
+    fijarSeleccion(L.map(u => u.id));
+    const ahora = performance.now();
+    if (ultimoGrupo.n === n && ahora - ultimoGrupo.ms < 450) { acabarTrans(); centrar(L.reduce((a, u) => a + u.x, 0) / L.length, L.reduce((a, u) => a + u.y, 0) / L.length); }
+    else aviso(`grupo ${n} · ${L.length} ${L.length === 1 ? 'unidad' : 'unidades'} · pulsa otra vez para ir a él`, 2200);
+    ultimoGrupo = { n, ms: ahora };
+  }
+  function empezarGrupo(n) {
+    if (!iniciada || st.fin) return;
+    cerrarMenu(); cerrarPlan(); $('panelMando').hidden = true;
+    formando = { n, fase: 'punto', p: null, marcadas: new Set(deGrupo(n).map(u => u.id)) };
+    $('grupoPanel').hidden = true; cv.style.cursor = 'crosshair';
+    aviso(`grupo ${n}: haz clic en el mapa para fijar su punto de reunión · Esc cancela`, 1e9);
+  }
+  function cancelarGrupo() { if (!formando) return; formando = null; $('grupoPanel').hidden = true; cv.style.cursor = ''; aviso(''); }
+  function fijarPuntoGrupo(p) { formando.p = { x: p.x, y: p.y }; formando.fase = 'lista'; cv.style.cursor = ''; aviso(''); pintarGrupoPanel(); }
+  function pintarGrupoPanel() {
+    const c = $('grupoPanel'), F = formando; if (!F || F.fase !== 'lista') { c.hidden = true; return; }
+    c.hidden = false; c.textContent = '';
+    const h = document.createElement('h2'); h.textContent = `Grupo ${F.n}`; c.appendChild(h);
+    const sub = document.createElement('p'); sub.className = 'pie'; sub.textContent = 'Marca las unidades que lo forman. La distancia es al punto de reunión que fijaste; al formar, marchan hacia allí.'; c.appendChild(sub);
+    const todas = propiasTierra().slice().sort((a, b) => km(a, F.p) - km(b, F.p));
+    const seccion = (titulo, lista, vacio) => {
+      const t = document.createElement('b'); t.className = 'sec2'; t.textContent = `${titulo} · ${lista.length}`; c.appendChild(t);
+      if (!lista.length) { const v = document.createElement('small'); v.textContent = vacio; c.appendChild(v); return; }
+      for (const u of lista) {
+        const f = document.createElement('label'); f.className = 'gfila';
+        const ch = document.createElement('input'); ch.type = 'checkbox'; ch.checked = F.marcadas.has(u.id);
+        ch.addEventListener('change', () => { if (ch.checked) F.marcadas.add(u.id); else F.marcadas.delete(u.id); pie(); });
+        const p = document.createElement('i'); p.style.background = `var(${VAR[u.c]})`;
+        const n = document.createElement('span'); n.textContent = `${S.NOMBRES[u.c]} · ${Math.round(u.fuerza)}/${S.DATOS.clases[u.c].fuerza} · ${estadoDe(u)}${u.grupo && u.grupo !== F.n ? ` · grupo ${u.grupo}` : ''}`;
+        const d = document.createElement('b'); d.textContent = `${Math.round(km(u, F.p))} km`;
+        f.append(ch, p, n, d); c.appendChild(f);
+      }
+    };
+    seccion('En este grupo', todas.filter(u => u.grupo === F.n), 'Aún vacío.');
+    seccion('Libres', todas.filter(u => !u.grupo), 'No hay unidades libres.');
+    seccion('En otros grupos (se migran)', todas.filter(u => u.grupo && u.grupo !== F.n), 'Ninguna.');
+    const acc = document.createElement('div'); acc.className = 'acc';
+    const total = document.createElement('small'); total.id = 'grupoTotal';
+    const b1 = document.createElement('button'); b1.type = 'button'; b1.className = 'sec'; b1.textContent = 'Cambiar punto'; b1.addEventListener('click', () => { const m = F.marcadas; empezarGrupo(F.n); formando.marcadas = m; });
+    const b2 = document.createElement('button'); b2.type = 'button'; b2.className = 'sec'; b2.textContent = 'Cancelar'; b2.addEventListener('click', cancelarGrupo);
+    const b3 = document.createElement('button'); b3.type = 'button'; b3.className = 'accion'; b3.id = 'formarGrupo'; b3.textContent = 'Formar y reunir'; b3.addEventListener('click', formarGrupo);
+    acc.append(total, b1, b2, b3); c.appendChild(acc);
+    const pie = () => { const L = todas.filter(u => F.marcadas.has(u.id)); total.textContent = L.length ? `${L.length} ${L.length === 1 ? 'unidad' : 'unidades'} · la más lejana a ${Math.round(Math.max(...L.map(u => km(u, F.p))))} km` : 'ninguna marcada: el grupo quedará vacío'; };
+    pie();
+  }
+  function formarGrupo() {
+    const F = formando; if (!F) return;
+    const ids = propiasTierra().filter(u => F.marcadas.has(u.id)).map(u => u.id);
+    S.ordenar(st, { t: 'grupo', n: F.n, ids, x: F.p.x, y: F.p.y });
+    const van = propiasTierra().filter(u => F.marcadas.has(u.id) && puedeMoverse(u) && km(u, F.p) > 3).map(u => u.id);
+    if (van.length) S.ordenar(st, { t: 'mover', ids: van, x: F.p.x, y: F.p.y });
+    marca = { x: F.p.x, y: F.p.y, ms: performance.now() };
+    cancelarGrupo(); fijarSeleccion(ids); pintarGrupos();
+    aviso(ids.length ? `grupo ${F.n} formado · ${ids.length} · ${van.length} en camino al punto` : `grupo ${F.n} disuelto`, 2600);
+  }
+  function pintarGrupos() {
+    const c = $('grupos'), L = []; if (!iniciada) { c.hidden = true; return; }
+    for (let n = 1; n <= 10; n++) { const q = deGrupo(n); if (q.length) L.push([n, q]); }
+    c.hidden = !L.length && !tactil; c.textContent = '';
+    for (const [n, q] of L) {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'g'; b.title = 'Clic: seleccionar · doble clic: editar';
+      const a = document.createElement('b'); a.textContent = n === 10 ? '0' : String(n);
+      const t = document.createElement('span'); t.textContent = `${q.length} · fuerza ${Math.round(q.reduce((x, u) => x + u.fuerza, 0))}${q.some(u => u.rota) ? ' · con quebradas' : ''}`;
+      b.append(a, t); b.addEventListener('click', () => teclaGrupo(n, false)); b.addEventListener('dblclick', () => empezarGrupo(n)); c.appendChild(b);
+    }
+    if (L.length < 10) { const mas = document.createElement('button'); mas.type = 'button'; mas.className = 'g mas'; mas.textContent = '+ grupo'; mas.title = 'Formar un grupo nuevo (o pulsa un número del 1 al 0)'; mas.addEventListener('click', () => { for (let n = 1; n <= 10; n++) if (!deGrupo(n).length) { empezarGrupo(n); return; } }); c.appendChild(mas); }
+  }
+  function dibujarGrupo() {
+    if (!formando || !formando.p) return;
+    const x = ox + formando.p.x * s, y = oy + formando.p.y * s;
+    ctx.strokeStyle = HUESO; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(x, y, 12, 0, TAU); ctx.moveTo(x - 18, y); ctx.lineTo(x + 18, y); ctx.moveTo(x, y - 18); ctx.lineTo(x, y + 18); ctx.stroke();
+    ctx.fillStyle = HUESO; ctx.font = `10px ${MONO}`; ctx.fillText(`grupo ${formando.n}`, x + 16, y - 14);
+  }
+
   function cuadro(now) {
     const dt = Math.min(.25, (now - ult) / 1000); ult = now;
     avanzarTrans(now);
@@ -1605,7 +1687,7 @@
     }
     if (st.fin && !cerrado) { cerrado = true; cerrar(); } else if (!st.fin) cerrado = false;
     dibujar(corriendo ? Math.min(1, acum / S.DT) : 1, now);
-    if (now - tHud > 200) { tHud = now; hud(); vigilarTutorial(); }
+    if (now - tHud > 200) { tHud = now; hud(); vigilarTutorial(); pintarGrupos(); }
     requestAnimationFrame(cuadro);
   }
 

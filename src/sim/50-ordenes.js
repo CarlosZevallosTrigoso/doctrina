@@ -159,6 +159,17 @@
       const i = L.indexOf(u.id); if (o.on && i < 0) L.push(u.id); else if (!o.on && i >= 0) L.splice(i, 1);
       return true;
     }
+    // Grupos del 1 al 10: las unidades marcadas pasan al grupo n (salen del que tuvieran) y las que estaban en n y no se marcan, salen. n = 0 las deja libres.
+    if (o.t === 'grupo') {
+      const n = o.n | 0; if (n < 0 || n > 10 || !Array.isArray(o.ids)) return false;
+      const ids = new Set(o.ids);
+      for (const u of st.unidades) {
+        if (u.dead || u.s !== s || u.aire) continue;
+        if (ids.has(u.id)) u.grupo = n; else if (n && u.grupo === n) u.grupo = 0;
+      }
+      if (n && Number.isFinite(o.x) && Number.isFinite(o.y)) st.reunion[s][n] = { x: clamp(o.x, 0, st.W), y: clamp(o.y, 0, st.H) };
+      return true;
+    }
     if (o.t === 'radar') { const d = st.defensas.find(q => q.id === o.id && q.s === s && q.t === RADAR); if (!d) return false; d.off = !o.on; return true; }
     if (o.t === 'god') { if (s !== 0) return false; st.god = !!o.on; return true; }
     return false;

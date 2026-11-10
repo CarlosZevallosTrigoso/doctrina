@@ -105,6 +105,26 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
 #fuerzas .f { display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: 8px; color: var(--gris); padding: 1px 0; }
 #fuerzas i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
 #fuerzas b { font-weight: 400; color: var(--hueso); }
+#grupos { display: flex; flex-wrap: wrap; gap: 3px; justify-content: flex-end; max-width: 300px; }
+#grupos .g { display: flex; gap: 6px; align-items: baseline; padding: 2px 7px; background: rgba(0, 0, 0, .8); border: 1px solid var(--linea); color: var(--gris); font-size: var(--fs-0); }
+#grupos .g b { color: var(--hueso); font-weight: 600; }
+#grupos .g:hover { border-color: var(--hueso); color: var(--hueso); }
+#grupos .mas { border-style: dashed; }
+#grupoPanel { position: fixed; z-index: 6; right: 12px; top: 44px; width: min(400px, calc(100vw - 24px)); max-height: calc(100vh - 110px); overflow: auto; background: var(--panel); border: 1px solid var(--tenue); border-radius: 2px; padding: 12px 14px; display: grid; gap: 3px; }
+#grupoPanel[hidden] { display: none; }
+#grupoPanel h2 { margin: 0; font-size: var(--fs-2); font-weight: 600; }
+#grupoPanel .pie, #grupoPanel small { margin: 0; color: var(--gris); font-size: var(--fs-0); }
+#grupoPanel .sec2 { margin-top: 8px; font-size: var(--fs-0); letter-spacing: .1em; text-transform: uppercase; color: var(--gris); font-weight: 400; }
+#grupoPanel .gfila { display: grid; grid-template-columns: auto 8px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 3px 4px; font-size: var(--fs-1); cursor: pointer; }
+#grupoPanel .gfila:hover { background: rgba(242, 239, 230, .08); }
+#grupoPanel .gfila i { width: 8px; height: 8px; border-radius: 50%; }
+#grupoPanel .gfila b { font-weight: 400; color: var(--hueso); font-variant-numeric: tabular-nums; }
+#grupoPanel .gfila span { color: var(--gris); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#grupoPanel .gfila input:checked ~ span { color: var(--hueso); }
+#grupoPanel .acc { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-end; margin-top: 10px; position: sticky; bottom: -12px; background: var(--panel); padding: 8px 0 4px; }
+#grupoPanel .acc small { margin-right: auto; }
+#grupoPanel .sec { padding: 6px 12px; border: 1px solid var(--linea); color: var(--gris); }
+.tactil #grupoPanel .gfila { padding: 10px 4px; } .tactil #grupos .g, .tactil #grupoPanel button { min-height: 44px; padding-inline: 14px; }
 #batallas { display: grid; gap: 1px; width: min(240px, 60vw); }
 #batallas .b { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 2px 6px; background: rgba(0, 0, 0, .72); text-align: left; color: var(--misil); font-size: var(--fs-0); }
 #batallas .b:hover { background: var(--hueso); color: var(--negro); }
@@ -226,6 +246,7 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
 
 <div id="marcador" role="status" aria-label="Ciudades"></div>
 
+<section id="grupoPanel" aria-label="Formar grupo" hidden></section>
 <section id="panelMando" aria-label="Mando: automatización y doctrina" hidden></section>
 <aside id="despliegue" aria-label="Despliegue inicial" hidden><div class="cab">despliegue</div><p id="despTexto"></p><div class="pie"><button id="despAuto" type="button" class="sec">Despliegue automático</button><button id="despIniciar" type="button" class="accion">Empezar la guerra</button></div></aside>
 <aside id="tuto" role="status" aria-live="polite" aria-label="Tutorial" hidden></aside>
@@ -243,6 +264,7 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
 </div>
 
 <nav id="mando" aria-label="Mando">
+  <div id="grupos" aria-label="Grupos" hidden></div>
   <div id="batallas" aria-label="Batallas en curso" hidden></div>
   <div id="misiones" aria-label="Órdenes en curso" hidden></div>
   <div id="seleccion" hidden>
@@ -285,6 +307,7 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
         <li><b>Suministro:</b> viene de tu capital y tus depósitos por tu territorio. Lo que queda cortado rinde menos y se desgasta. El agua solo se cruza por puentes, que se pueden destruir.</li>
         <li><b>Signos:</b> cuatro esquinas alrededor de una compañía, atrincherada; una cola, en marcha; anillo que parpadea, subiendo o bajando del camión. Un arco alrededor es la fuerza que le queda, rojo si es poca. La barra sobre una batalla es la balanza: la parte llena es tuya. La línea punteada clara marca tu abastecimiento pleno y la más tenue, hasta dónde una tropa no queda cercada. Las punteadas hacia un objetivo son misiones en curso.</li>
         <li><b>Atacar o defender:</b> al empezar eliges tu papel. El atacante tiene más tropa y aviación y debe tener en su poder 3 ciudades del defensor, o su capital, antes de que acabe el día 5. El defensor tiene menos tropa, pero empieza atrincherada y fortifica antes de la guerra con sus obras iniciales; gana si resiste hasta el plazo, si la moral del atacante colapsa o si toma su capital. Nada impide al defensor contraatacar. En «campaña» la guerra es simétrica y sin plazo. Al terminar puedes jugar el otro papel en el mismo mapa.</li>
+        <li><b>Grupos (1 al 0):</b> pulsa un número para formar un grupo: haz clic en el mapa para fijar su punto de reunión y marca en la lista las unidades que lo forman. Aparecen las libres y las de otros grupos (que se migran), cada una con su distancia en kilómetros a ese punto. Al formar, marchan hacia allí. Después, el número selecciona el grupo; dos veces seguidas lleva la cámara a él; con Mayúsculas lo editas. El estado mayor no toca tus grupos.</li>
         <li><b>Mando (D):</b> eliges cuánto decide tu estado mayor. <i>Baja</i>: lleva la logística. <i>Media</i>: además la defensa aérea y el reconocimiento. <i>Alta</i>: además los fuegos y los asaltos, sobre las ciudades que marques como objetivo. <i>Total</i>: lo decide todo. Una orden tuya directa manda sobre él diez minutos. Se cambia cuando quieras.</li>
         <li><b>Doctrina:</b> seis decisiones que valen para todo tu bando: postura, preservar la fuerza, radares, artillería, riesgo aéreo y bombardeo de ciudades. Un cambio tarda 20 segundos en llegar a las unidades.</li>
         <li><b>Escala y reloj:</b> una celda del mapa es 1 km y un segundo de juego es un minuto. La guerra empieza a las 06:00 del día 1. De 20:00 a 06:00 es de noche: la tropa y los drones ven menos y el satélite óptico no ve; cazas y aviones espía llevan radar y no lo notan. Una tormenta reduce la vista y deja a la aviación con la mitad de su efecto.</li>

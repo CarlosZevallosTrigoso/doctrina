@@ -18,7 +18,7 @@
     const signo = v.s === 0 ? 1 : -1, C = DATOS.clases, b = v.base, e = v.baseEnemiga, cr = { v: v.creditos };
     const d = (q, w) => Math.hypot(q.x - w.x, q.y - w.y);
     const mias = v.ciudades.filter(c => c.dueno === signo), ajenas = v.ciudades.filter(c => c.dueno !== signo);
-    const tierra = v.propias.filter(u => !u.aire && !u.rota && !(u.manual > v.t)), enemigosT = v.contactos.filter(u => !u.aire);
+    const tierra = v.propias.filter(u => !u.aire && !u.rota && !(u.manual > v.t) && !u.grupo), enemigosT = v.contactos.filter(u => !u.aire);   // los grupos del mando no se tocan
     const distFrente2 = c => v.ciudades.filter(q => q.dueno === signo).reduce((m, q) => Math.min(m, d(c, q)), 1e9);
     const distFrente = c => ajenas.reduce((m, q) => Math.min(m, d(c, q)), 1e9);
     // Zonas de control: capital y ciudades del frente.

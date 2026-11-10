@@ -33,6 +33,7 @@ node test_grande.js   # mapa a tamaño completo y coste por tick
 node smoke.js         # recorrido en navegador (necesita Playwright)
 node tuto_smoke.js    # recorrido del tutorial (necesita Playwright)
 node modo_smoke.js    # recorrido del modo ataque/defensa (necesita Playwright)
+node grupos_smoke.js  # recorrido de los grupos del 1 al 10 (necesita Playwright)
 node balance.js 4     # partidas IA contra IA
 ```
 

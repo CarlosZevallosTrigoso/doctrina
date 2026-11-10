@@ -16,7 +16,7 @@
   }
   function nuevaUnidad(st, s, c, x, y) {
     const cl = DATOS.clases[c];
-    const u = { id: st.sigId++, s, c, x, y, px: x, py: y, tx: x, ty: y, st: DESPLEGADA, cd: 0, fuerza: cl.fuerza, camion: c === INF, via: null, t: 0, m: 0, dead: false, idt: false, oculto: false, urbe: -1, aire: false, sinSum: 0, rota: false, fort: 0, delata: 0, mun: 1, comb: 1 };
+    const u = { id: st.sigId++, s, c, x, y, px: x, py: y, tx: x, ty: y, st: DESPLEGADA, cd: 0, fuerza: cl.fuerza, camion: c === INF, via: null, t: 0, m: 0, dead: false, idt: false, oculto: false, urbe: -1, aire: false, sinSum: 0, rota: false, fort: 0, delata: 0, mun: 1, comb: 1, grupo: 0 };
     st.unidades.push(u);
     return u;
   }
@@ -37,6 +37,7 @@
       velT: [new Float32Array(n), new Float32Array(n)],
       ciudades: [], puentes: [], vigia: [[], []], radar: [[], []], fotos: [new Map(), new Map()], alertas: [[], []],
       urbes: [], conq: [0, 0], agot: [0, 0], abastos: [DATOS.abastos.reserva.inicio, DATOS.abastos.reserva.inicio], tormenta: 0,
+      reunion: [{}, {}],   // punto de reunión de cada grupo, por bando
       doctrina: [0, 1].map(() => ({ ...DATOS.doctrina.inicial, objetivos: [] })), doctrinaPend: [null, null], stats: { bajas: [0, 0], fuerzaPerdida: [0, 0] }, bases: [{ ...A.BASES[0], s: 0, signo: 1 }, { ...A.BASES[1], s: 1, signo: -1 }],
     };
     st.v = DATOS.clases.map(c => DATOS.dRef / c.cruce);
