@@ -115,7 +115,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 1px
 /* atlas · núcleo del mapa: formato, trazos, conversión a celdas, frontera y validación. Sin DOM. */
 const ATLAS = (() => {
   'use strict';
-  const COLS = 104, ROWS = 64, CELDA = 16, W = COLS * CELDA, H = ROWS * CELDA, N = COLS * ROWS;
+  // ATLAS_DIV solo existe para las pruebas: un mapa menor con las mismas reglas.
+  const DIV = (typeof process !== 'undefined' && process.env && +process.env.ATLAS_DIV) || 1;
+  const COLS = 312 / DIV, ROWS = 192 / DIV, CELDA = 16, W = COLS * CELDA, H = ROWS * CELDA, N = COLS * ROWS;
   const LLANURA = 0, AGUA = 1, BOSQUE = 2, MONTANA = 3, CIUDAD = 4;
   const LETRAS = 'labmc', TIPOS = ['rio', 'camino', 'frontera'];
   const R_ZONA = 190, MARGEN = 28;
@@ -408,16 +410,16 @@ const ATLAS = (() => {
     return a;
   }
   function aJSON(m) {
-    return JSON.stringify({ formato: 'doctrina-mapa', v: 2, nombre: m.nombre, cols: COLS, rows: ROWS, celda: CELDA, simetria: m.simetria, areas: aRLE(m.areas),
+    return JSON.stringify({ formato: 'doctrina-mapa', v: 3, nombre: m.nombre, cols: COLS, rows: ROWS, celda: CELDA, simetria: m.simetria, areas: aRLE(m.areas),
       lineas: m.lineas.map(l => ({ t: l.t, g: l.g, p: l.p.map(v => Math.round(v * 10) / 10) })) });
   }
   function deJSON(txt) {
     let o;
     try { o = JSON.parse(txt); } catch (_) { throw new Error('El texto no es JSON válido.'); }
     if (!o || o.formato !== 'doctrina-mapa') throw new Error('Este JSON no es un mapa de doctrina.');
-    if (o.v !== 1 && o.v !== 2) throw new Error(`Versión de mapa no admitida: ${o.v}.`);
-    // La versión 1 medía 52×32: se convierte duplicando cada celda y cada coordenada.
-    const antiguo = o.v === 1, escala = antiguo ? 2 : 1, colsO = COLS / escala, rowsO = ROWS / escala;
+    if (o.v !== 1 && o.v !== 2 && o.v !== 3) throw new Error(`Versión de mapa no admitida: ${o.v}.`);
+    // Los mapas antiguos medían 52×32 (v1) o 104×64 (v2): se convierten multiplicando cada celda y coordenada.
+    const escala = o.v === 1 ? COLS / 52 : o.v === 2 ? COLS / 104 : 1, antiguo = escala > 1, colsO = COLS / escala, rowsO = ROWS / escala;
     if (o.cols !== colsO || o.rows !== rowsO || o.celda !== CELDA) throw new Error(`El mapa debe medir ${colsO}×${rowsO} celdas de ${CELDA}.`);
     if (typeof o.areas !== 'string') throw new Error('Falta el dibujo de áreas.');
     if (!Array.isArray(o.lineas) || o.lineas.length > 600) throw new Error('La lista de líneas no es válida.');
@@ -426,7 +428,7 @@ const ATLAS = (() => {
     m.simetria = !!o.simetria;
     if (antiguo) {
       const v = deRLE(o.areas, colsO * rowsO);
-      for (let j = 0; j < ROWS; j++) for (let i = 0; i < COLS; i++) m.areas[idx(i, j)] = v[(i >> 1) + (j >> 1) * colsO];
+      for (let j = 0; j < ROWS; j++) for (let i = 0; i < COLS; i++) m.areas[idx(i, j)] = v[Math.floor(i / escala) + Math.floor(j / escala) * colsO];
     } else m.areas = deRLE(o.areas);
     let g = 1;
     for (const l of o.lineas) {
@@ -443,33 +445,38 @@ const ATLAS = (() => {
   function ejemplo() {
     const m = crearVacio();
     m.nombre = 'Dos riberas';
-    const ruido = (x, y) => Math.sin(x * .0155 + 1.3) * Math.cos(y * .0135 + .7) + .5 * Math.sin(x * .035 + y * .025);
+    const ruido = (x, y) => Math.sin(x * .0052 + 1.3) * Math.cos(y * .0045 + .7) + .5 * Math.sin(x * .0117 + y * .0083);
     const poner = (k, t) => { m.areas[k] = t; m.areas[N - 1 - k] = t; };
-    const cada = f => { for (let j = 0; j < ROWS; j++) for (let i = 0; i < COLS; i++) f((i + .5) * CELDA, (j + .5) * CELDA, idx(i, j)); };
-    const lineaP = [440, 116, 524, 236, 600, 340, 704, 428];
-    const dLinea = (x, y) => { let d = 1e9; for (let k = 0; k + 3 < lineaP.length; k += 2) d = Math.min(d, distSeg(x, y, lineaP[k], lineaP[k + 1], lineaP[k + 2], lineaP[k + 3])); return d; };
-    cada((x, y, k) => {
-      if (Math.hypot(x, y) + ruido(x, y) * 52 < 352) poner(k, AGUA);
-    });
-    cada((x, y, k) => {
-      const d = dLinea(x, y);
-      if (d + ruido(x * 2, y * 2) * 24 < 60 && Math.hypot(x - 524, y - 236) > 32) poner(k, MONTANA);
-    });
-    for (const [cx, cy, r] of [[636, 704, 112], [464, 492, 68], [168, 536, 80], [860, 828, 104], [1032, 904, 68], [330, 880, 56], [1210, 930, 60]]) {
-      cada((x, y, k) => { if (m.areas[k] === LLANURA && Math.hypot(x - cx, y - cy) + ruido(x * 3, y * 3) * 18 < r) poner(k, BOSQUE); });
+    const e = W / 4992, cada = f => { for (let j = 0; j < ROWS; j++) for (let i = 0; i < COLS; i++) f((i + .5) * CELDA / e, (j + .5) * CELDA / e, idx(i, j)); };
+    const distA = (x, y, L) => { let d = 1e9; for (let k = 0; k + 3 < L.length; k += 2) d = Math.min(d, distSeg(x, y, L[k], L[k + 1], L[k + 2], L[k + 3])); return d; };
+    cada((x, y, k) => { if (Math.hypot(x, y) + ruido(x, y) * 156 < 1056) poner(k, AGUA); });
+    // Lagos interiores de cada región.
+    for (const [cx, cy, r] of [[2260, 3000, 170], [560, 1720, 150]]) cada((x, y, k) => { if (Math.hypot(x - cx, y - cy) + ruido(x * 2, y * 2) * 44 < r) poner(k, AGUA); });
+    // Sierras: la del norte y una al sureste que obliga a rodear.
+    for (const L of [[1320, 348, 1572, 708, 1800, 1020, 2112, 1284], [3000, 2840, 3260, 2560, 3500, 2460], [240, 1000, 420, 800, 560, 1040]]) {
+      cada((x, y, k) => { const d = distA(x, y, L); if (d + ruido(x * 2, y * 2) * 72 < 170 && Math.hypot(x - 1572, y - 708) > 90) poner(k, MONTANA); });
     }
-    // Seis ciudades por lado. Conservan su radio: conquistar una cuesta lo mismo que antes.
-    for (const [cx, cy, r] of [[412, 704, 18], [712, 592, 16], [940, 764, 20], [252, 660, 12], [600, 930, 14], [530, 490, 14]]) {
-      cada((x, y, k) => { if (m.areas[k] !== AGUA && Math.hypot(x - cx, y - cy) < r) poner(k, CIUDAD); });
+    for (const [cx, cy, r] of [[1908, 2112, 330], [1392, 1476, 200], [504, 1608, 230], [2580, 2484, 310], [3096, 2712, 200], [990, 2640, 170], [3630, 2790, 170], [1050, 1040, 210], [2080, 2860, 160], [320, 2460, 150]]) {
+      cada((x, y, k) => { if (m.areas[k] === LLANURA && Math.hypot(x - cx, y - cy) + ruido(x * 3, y * 3) * 54 < r) poner(k, BOSQUE); });
     }
-    const curva = p => suavizar(p, 2);
-    agregarLinea(m, 'frontera', curva([336, 0, 428, 96, 400, 220, 536, 300, 612, 412, 748, 452, 832, 512]));
-    agregarLinea(m, 'rio', curva([192, 192, 336, 376, 376, 564, 524, 724, 560, 884, 644, 1024]));
-    agregarLinea(m, 'rio', curva([600, 352, 520, 428, 428, 480, 372, 524]));
-    agregarLinea(m, 'camino', curva([120, 904, 260, 804, 412, 696, 576, 652, 708, 596, 832, 512]));
-    agregarLinea(m, 'camino', curva([80, 964, 320, 940, 600, 930, 800, 884, 940, 768, 1120, 784, 1212, 816, 1304, 724]));
-    agregarLinea(m, 'camino', curva([260, 804, 252, 660, 300, 524, 428, 428, 524, 236, 428, 144]));
-    agregarLinea(m, 'camino', curva([428, 428, 530, 490, 576, 652]));
+    // Dieciocho ciudades por lado, repartidas por regiones. Conservan su radio: conquistar una cuesta lo mismo.
+    const urbes = [[700, 2650, 16], [1250, 2860, 14], [420, 2120, 14], [1800, 2790, 14], [1236, 2112, 18], [2250, 2520, 16], [756, 1980, 12], [250, 1420, 14], [720, 1240, 16],
+      [1590, 1470, 14], [2136, 1776, 16], [2820, 2292, 20], [1320, 820, 14], [3300, 2700, 16], [3600, 2900, 14], [3150, 2150, 14], [2500, 2950, 14], [1800, 2200, 14]];
+    for (const [cx, cy, r] of urbes) cada((x, y, k) => { if (m.areas[k] !== AGUA && Math.hypot(x - cx, y - cy) < r / e) poner(k, CIUDAD); });
+    const curva = p => suavizar(p, 2).map(v => v * e);
+    agregarLinea(m, 'frontera', curva([1008, 0, 1284, 288, 1200, 660, 1608, 900, 1836, 1236, 2244, 1356, 2496, 1536]));
+    agregarLinea(m, 'rio', curva([576, 576, 1008, 1128, 1128, 1692, 1572, 2172, 1680, 2652, 1932, 3072]));
+    agregarLinea(m, 'rio', curva([1800, 1056, 1560, 1284, 1284, 1440, 1116, 1572]));
+    agregarLinea(m, 'rio', curva([3010, 3072, 3080, 2700, 2960, 2400, 3180, 2050, 3340, 1860]));
+    for (const L of [
+      [120, 2904, 360, 2712, 780, 2412, 1236, 2088, 1728, 1956, 2124, 1788, 2496, 1536],
+      [240, 2892, 960, 2820, 1800, 2790, 2400, 2652, 2820, 2304, 3360, 2352, 3636, 2448, 3912, 2172],
+      [780, 2412, 756, 1980, 900, 1572, 1284, 1284, 1572, 708, 1284, 432],
+      [1284, 1284, 1590, 1470, 1728, 1956],
+      [756, 1980, 420, 2120], [900, 1572, 720, 1240, 250, 1420], [720, 1240, 1320, 820, 1572, 708],
+      [360, 2712, 700, 2650, 1250, 2860], [1236, 2088, 1800, 2200, 2250, 2520, 2400, 2652],
+      [2820, 2304, 3150, 2150], [2400, 2652, 2500, 2950, 3300, 2700, 3600, 2900], [3300, 2700, 3360, 2352],
+    ]) agregarLinea(m, 'camino', curva(L));
     return m;
   }
 
@@ -516,8 +523,8 @@ if (typeof module !== 'undefined') module.exports = ATLAS;
     { id: 'borrar', n: 'borrar línea', k: '9' },
   ];
   const HERR = [...AREAS, ...LINEAS];
-  const PINCEL = [1, 24, 60];
-  const ZOOM = [1, 2, 3.5];
+  const PINCEL = [1, 36, 120];
+  const ZOOM = [1, 2, 4, 7];
 
   let m, der, muestra = [], herr = 'bosque', pincel = 1, capaJuego = true;
   let undo = [], redo = [], trazo = null, cursor = null, sucio = true, capaSucia = true, costasCache = [], tGuardar = 0;
@@ -609,6 +616,8 @@ if (typeof module !== 'undefined') module.exports = ATLAS;
       const cx = (i + .5) * A.CELDA, cy = (j + .5) * A.CELDA, pc = PX(cx, cy), qc = PY(cx, cy);
       if (pc < -20 || pc > cw + 20 || qc < -20 || qc > ch + 20) continue;
       const l = capaJuego ? der.lado[k] : 0, q = cubo(l, t), ta = TALLA[t];
+      // Lejos, un punto por celda: dibujar todos los glifos del mapa entero sería lento.
+      if (s < 1.1) { const r = rp * ta; q.rect(pc - r, qc - r, r * 2, r * 2); continue; }
       for (const [dx, dy] of GLIFO[t]) {
         const x = PX(cx + dx, cy + dy), y = PY(cx + dx, cy + dy);
         if (l < 0) rombo(q, x, y, rr * ta); else circulo(q, x, y, (l > 0 ? rp : rp * .85) * ta);
@@ -814,7 +823,12 @@ if (typeof module !== 'undefined') module.exports = ATLAS;
     if (paneo) { moverVista(e.clientX - paneo.x, e.clientY - paneo.y); paneo.x = e.clientX; paneo.y = e.clientY; return; }
     const p = aMundo(e);
     cursor = e.pointerType === 'mouse' ? p : null;
-    if (trazo && trazo.k === 'area') { pintarHasta(p); cambio(); }
+    if (trazo && trazo.k === 'area') {
+      pintarHasta(p);
+      // Recalcular todo el mapa en cada movimiento pesa: durante el trazo basta unas veces por segundo.
+      const ahora = performance.now();
+      if (ahora - (trazo.t || 0) > 160) { trazo.t = ahora; cambio(); } else { capaSucia = sucio = true; }
+    }
     else if (trazo && trazo.k === 'linea') {
       const q = trazo.p, n = q.length;
       if (Math.hypot(p.x - q[n - 2], p.y - q[n - 1]) >= 3) q.push(p.x, p.y);
@@ -824,6 +838,7 @@ if (typeof module !== 'undefined') module.exports = ATLAS;
   const soltar = e => {
     if (e.pointerType === 'touch') { toques.delete(e.pointerId); if (toques.size < 2) pinza = null; }
     if (paneo) { paneo = null; return; }
+    if (trazo && trazo.k === 'area') cambio();
     if (trazo && trazo.k === 'linea' && e.type === 'pointerup') {
       const q = trazo.p;
       let largo = 0;
