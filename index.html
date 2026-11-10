@@ -96,7 +96,7 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
 #misiones .x:hover { color: var(--negro); background: var(--hueso); }
 #seleccion { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 4px 8px; font-size: var(--fs-0); }
 #seleccion button { padding: 3px 8px; border: 1px solid var(--tenue); background: var(--negro); color: var(--hueso); }
-#ctrl { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; max-width: 420px; }
+#ctrl { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; max-width: 500px; }
 #ctrl button { padding: 3px 8px; border: 1px solid var(--linea); color: var(--gris); background: var(--negro); min-width: 3ch; }
 #ctrl button:hover { color: var(--hueso); border-color: var(--tenue); }
 #ctrl button[aria-pressed="true"] { color: var(--negro); background: var(--hueso); border-color: var(--hueso); }
@@ -198,7 +198,8 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
   <div id="fuerzas" aria-label="Fuerzas disponibles"></div>
   <div id="ctrl">
     <button id="pausa" type="button">pausa</button>
-    <button id="vel" type="button" title="Velocidad (V)">×1</button>
+    <button id="vel" type="button" title="Velocidad (V). Baja sola a ×1 cuando pasa algo importante">×1</button>
+    <button id="salto" type="button" aria-pressed="false" title="Avanza rápido hasta el próximo evento y pausa (N)">▸ evento</button>
     <button id="todas" type="button" title="Selecciona todas tus tropas (T)">todas</button>
     <button id="guardar" type="button" title="Guardar la partida">guardar</button>
     <button id="sonido" type="button" aria-pressed="true" title="Sonido (M)">sonido</button>
@@ -224,6 +225,8 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
         <li><b>Batallas:</b> cada ciudad tiene barrios (los cuadritos). Una batalla los disputa uno a uno; cuando el atacante tiene la mayoría, la ciudad cae. Clic en una batalla de la lista te lleva allí.</li>
         <li><b>Ocupación:</b> una ciudad tomada necesita guarnición. Si no, surge resistencia y puede sublevarse. Bombardearla ayuda a tomarla, pero luego produce menos y es más hostil.</li>
         <li><b>Suministro:</b> viene de tu capital y tus depósitos por tu territorio. Lo que queda cortado rinde menos y se desgasta. El agua solo se cruza por puentes, que se pueden destruir.</li>
+        <li><b>Cerco:</b> una compañía detenida lejos de tu línea de abastecimiento se rinde a los 5 minutos. Una ciudad cortada de tu capital y tus depósitos capitula a los 6 si el enemigo ya llega hasta ella. Un depósito o recuperar el territorio rompe el cerco.</li>
+        <li><b>Tiempo:</b> al acelerar, la velocidad vuelve sola a ×1 cuando hay una batalla, cae una ciudad o llega un parte. <kbd>N</kbd> avanza hasta el próximo evento y pausa.</li>
         <li><b>Cupo de tierra:</b> sostienes 12 compañías más una por ciudad propia. Perder territorio deja de pagar el ejército.</li>
         <li><b>Camiones:</b> una compañía de 10 soldados sube y baja del camión con tiempo. Destruida en marcha lo pierde todo; sin camión ya no se puede mover.</li>
         <li><b>Aire:</b> cada pista guarda aparatos que tardan en rearmarse. Sin antiaéreas destruidas, atacar cuesta caro. El misil no vuelve: es devastador contra lo fijo y flojo contra tropa dispersa.</li>
@@ -692,6 +695,8 @@ const DOCTRINA = (() => {
       ingreso: 5, capital: 3, bono: 60, dolor: { golpe: 0.05, guar: 3, moral: 0.05 }, repara: 0.0008, antiguedad: 180 },
     resistencia: { sube: 0.008, porDano: 0.03, baja: 0.002, guardia: 8, golpe: 6, cada: 10 },
     suministro: { alcance: 8, cada: 150, desgaste: 0.012 },
+    // Cerco: lo que queda cortado del suministro avisa, y si nadie lo socorre, se rinde.
+    cerco: { aviso: 45, unidad: 300, ciudad: 360, linea: 30 },
     creditos: { inicio: 900 },
     // Compañías que un bando puede sostener: el territorio da la logística.
     ejercito: { base: 12, porCiudad: 1 },
@@ -903,7 +908,7 @@ const DOCTRINA = (() => {
   }
   function nuevaUnidad(st, s, c, x, y) {
     const cl = DATOS.clases[c];
-    const u = { id: st.sigId++, s, c, x, y, px: x, py: y, tx: x, ty: y, st: DESPLEGADA, cd: 0, fuerza: cl.fuerza, camion: c === INF, via: null, t: 0, m: 0, dead: false, idt: false, oculto: false, urbe: -1, aire: false };
+    const u = { id: st.sigId++, s, c, x, y, px: x, py: y, tx: x, ty: y, st: DESPLEGADA, cd: 0, fuerza: cl.fuerza, camion: c === INF, via: null, t: 0, m: 0, dead: false, idt: false, oculto: false, urbe: -1, aire: false, sinSum: 0 };
     st.unidades.push(u);
     return u;
   }
@@ -988,7 +993,7 @@ const DOCTRINA = (() => {
       for (let b = 0; b < nb; b++) { const a = b / nb * 6.2832 - 1.57; barrios.push({ dueno: d, x: g.x + Math.cos(a) * 19, y: g.y + Math.sin(a) * 19 }); }
       st.urbes.push({
         id: i, nombre: g.capital ? (g.lado === 0 ? 'Aurora' : 'Ocaso') : DATOS.nombresCiudad[i % DATOS.nombresCiudad.length], x: g.x, y: g.y, celdas: g.celdas, capital: g.capital,
-        dueno: d, orig: d, barrios, prog: 0, guar: g.capital ? DATOS.ciudad.guarnicion * 2 : (d ? DATOS.ciudad.guarnicion : 8), moral: 1, dano: 0, res: 0, ocupada: null, desde: 0, cambio: false, batalla: null,
+        dueno: d, orig: d, barrios, prog: 0, guar: g.capital ? DATOS.ciudad.guarnicion * 2 : (d ? DATOS.ciudad.guarnicion : 8), moral: 1, dano: 0, res: 0, ocupada: null, desde: 0, cambio: false, batalla: null, cerco: 0,
       });
     });
     // Provincias: cada celda transitable pertenece a la ciudad más cercana por tierra.
@@ -1149,17 +1154,32 @@ const DOCTRINA = (() => {
           const x = i + (e === 0 ? 1 : e === 1 ? -1 : 0), y = j + (e === 2 ? 1 : e === 3 ? -1 : 0);
           if (x < 0 || y < 0 || x >= cols || y >= rows) continue;
           const q = x + y * cols;
-          if (S[q] || !transitable(st, q)) continue;
+          if (S[q]) continue;
+          if (!transitable(st, q)) { S[q] = 1; continue; }   // la orilla cuenta, pero no propaga
           const propia = dueno(st, q) === signo;
           // Fuera del territorio propio, el suministro solo avanza unas celdas.
           if (!propia && l >= alcance) continue;
           S[q] = 1; nivel[q] = propia ? 0 : l + 1; cola[b++] = q;
         }
       }
+      // Línea de abastecimiento (2): más allá del suministro pleno, una tropa aún no está cercada.
+      a = 0; nivel.fill(0);
+      while (a < b) {
+        const k = cola[a++], i = k % cols, j = (k - i) / cols, l = nivel[k];
+        if (l >= DATOS.cerco.linea) continue;
+        for (let e = 0; e < 4; e++) {
+          const x = i + (e === 0 ? 1 : e === 1 ? -1 : 0), y = j + (e === 2 ? 1 : e === 3 ? -1 : 0);
+          if (x < 0 || y < 0 || x >= cols || y >= rows) continue;
+          const q = x + y * cols;
+          if (S[q] || !transitable(st, q)) continue;
+          S[q] = 2; nivel[q] = l + 1; cola[b++] = q;
+        }
+      }
     }
     void size;
   }
-  const conSuministro = (st, s, x, y) => !!st.sum[s][celdaDe(st, x, y)];
+  const conSuministro = (st, s, x, y) => st.sum[s][celdaDe(st, x, y)] === 1;
+  const conLinea = (st, s, x, y) => st.sum[s][celdaDe(st, x, y)] > 0;
 
   /* ---------- Marcha y combate en tierra ---------- */
   const qDe = u => 1;
@@ -1255,7 +1275,7 @@ const DOCTRINA = (() => {
   }
   function caerCiudad(st, u, nuevo) {
     const antes = u.dueno;
-    u.dueno = nuevo; u.desde = st.t; u.guar = 0; u.moral = Math.min(u.moral, .6); u.cambio = true; u.prog = 0;
+    u.dueno = nuevo; u.desde = st.t; u.guar = 0; u.cerco = 0; u.moral = Math.min(u.moral, .6); u.cambio = true; u.prog = 0;
     if (nuevo === u.orig) u.ocupada = null; else if (u.orig && nuevo) u.ocupada = { por: nuevo, t: st.t };
     if (nuevo) { const q = ladoDe(nuevo); if (!(u.tomada & (1 << q))) { u.tomada = (u.tomada || 0) | (1 << q); if (st.t > 0) st.creditos[q] += DATOS.ciudad.bono; } }
     for (const k of u.celdas) st.ter.ctrl[k] = nuevo || 0;
@@ -1263,8 +1283,17 @@ const DOCTRINA = (() => {
     if (u.capital && nuevo !== u.orig) st.fin = { ganador: ladoDe(nuevo || -u.orig), t: st.t, causa: 'capital' };
   }
   function pasoCiudades(st) {
-    const C = DATOS.ciudad;
-    for (const g of st.unidades) if (!g.aire) g.urbe = -1;
+    const C = DATOS.ciudad, K = DATOS.cerco;
+    for (const g of st.unidades) {
+      if (g.aire || g.dead) continue;
+      g.urbe = -1;
+      // Una compañía aislada aguanta un tiempo y luego se rinde.
+      if (conLinea(st, g.s, g.x, g.y)) { g.sinSum = 0; continue; }
+      if (g.st === MARCHA || g.st === EMBARCANDO) continue;   // en ruta lleva lo suyo; el reloj corre al detenerse
+      g.sinSum++;
+      if (g.sinSum === K.aviso) st.ev.push({ k: 'aislada', id: g.id, x: g.x, y: g.y, s: g.s, c: g.c, t: st.t });
+      else if (g.sinSum >= K.unidad) { st.ev.push({ k: 'rendicion', id: g.id, x: g.x, y: g.y, s: g.s, c: g.c, t: st.t }); matar(st, g); }
+    }
     for (const u of st.urbes) {
       const L = [[], []];
       for (const g of st.unidades) {
@@ -1312,6 +1341,17 @@ const DOCTRINA = (() => {
           const tope = u.ocupada ? C.ocupada : u.capital ? C.guarnicion * 2 : C.guarnicion;
           u.guar = Math.min(tope, u.guar + C.regenera); u.moral = Math.min(1, u.moral + .002); u.dano = Math.max(0, u.dano - C.repara);
         } else if (!sum) { u.guar = Math.max(0, u.guar - .02); u.moral = Math.max(.1, u.moral - .002); }
+        // Cercada: avisa, y si el enemigo ya la abastece y nadie rompe el cerco, capitula.
+        if (sum || u.capital) u.cerco = 0;
+        else {
+          u.cerco++;
+          if (u.cerco === K.aviso) st.ev.push({ k: 'cercada', id: u.id, x: u.x, y: u.y, s, t: st.t });
+          if (u.cerco >= K.ciudad && conLinea(st, 1 - s, u.x, u.y)) {
+            st.ev.push({ k: 'capitula', id: u.id, x: u.x, y: u.y, s, t: st.t });
+            const nuevo = -u.dueno; for (const b of u.barrios) b.dueno = nuevo;
+            u.batalla = null; caerCiudad(st, u, nuevo);
+          }
+        }
         st.creditos[s] += (u.capital ? C.capital : 1) * C.ingreso / 60 * (1 - u.dano * .6) * (sum ? 1 : .3);
       }
       if (u.ocupada && st.t % seg(DATOS.resistencia.cada) === 0) resistencia(st, u, L);
@@ -1828,7 +1868,9 @@ const DOCTRINA = (() => {
     if (!fijo || fijo.dueno === signo || v.t - ia.objT > seg(2400)) {
       let m = null, mv = -Infinity;
       const ref = mias.length ? mias : [{ x: b.x, y: b.y }];
-      for (const c of ajenas) {
+      // Solo objetivos donde la tropa no quedaría cercada, si los hay.
+      const alcanzables = ajenas.filter(c => v.linea(c.x, c.y));
+      for (const c of alcanzables.length ? alcanzables : ajenas) {
         const cerca = ref.reduce((a, q) => Math.min(a, d(c, q)), 1e9);
         const estima = (c.guar == null ? 14 : c.guar) + enemigosT.filter(u => d(u, c) < 200).reduce((a, u) => a + (u.fuerza || 6) * (C[u.c] ? C[u.c].peso || 1 : 1), 0);
         const val = -cerca / 400 - estima / 6 + (c.capital ? 8 : 0) + r() * 2;
@@ -1948,7 +1990,7 @@ const DOCTRINA = (() => {
     const intel = st.intel[s], be = st.bases[1 - s], signo = signoDe(s);
     return {
       s, t: st.t, W: st.W, H: st.H, cols: T.cols, rows: T.rows, size: T.size, base: st.bases[s], baseEnemiga: { x: be.x, y: be.y },
-      propias, contactos, celdas: st.mem[s], visibles: v, pasable: k => transitable(st, k), fotos: [...st.fotos[s].values()], alertas: st.alertas[s],
+      propias, contactos, linea: (x, y) => conLinea(st, s, x, y), celdas: st.mem[s], visibles: v, pasable: k => transitable(st, k), fotos: [...st.fotos[s].values()], alertas: st.alertas[s],
       creditos: st.creditos[s], defensas: st.defensas.filter(d => d.s === s), defensasE: st.fin ? st.defensas.filter(d => d.s !== s).map(d => ({ id: d.id, x: d.x, y: d.y, t: d.t, s: d.s, enObra: st.t < d.listo })) : [...st.memDef[s].values()],
       hangar: resumenHangar(st, s), cola: st.colas[s], zonas: st.zonas.filter(z => z.s === s), misiones: st.misiones.filter(m => m.s === s),
       ciudades: st.urbes.map(u => {
@@ -2069,7 +2111,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
   let trazos = new Map(), fx = [], generacion = 0, marca = null;
   let seleccion = new Set(), grupos = {}, acu, marcas;
   let niveles = [1, 2, 3, 4], nivel = 2, trans = null, horno = null, pinza = null, faros = [], flechas = [];
-  let miniT = -1, miniU = 0, miniCam = '', modoCaja = false, ruedaHasta = 0, tGuardado = 0, pausaPorPlan = false;
+  let miniT = -1, miniU = 0, miniCam = '', modoCaja = false, ruedaHasta = 0, tGuardado = 0, pausaPorPlan = false, saltando = false, velAntes = 1;
   const teclas = new Set(), toques = new Map();
 
   /* ---------- Sonido: síntesis en el navegador, sin archivos ---------- */
@@ -2167,7 +2209,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
 
   /* ---------- Partida ---------- */
   function iniciarEstado() {
-    iniciada = false; acum = 0; vel = 1; gesto = null; horno = null; trans = null; faros = []; flechas = []; miniT = -1; nivel = 2;
+    iniciada = false; acum = 0; vel = 1; saltando = false; gesto = null; horno = null; trans = null; faros = []; flechas = []; miniT = -1; nivel = 2;
     puentesUI = st.mapa.der.centrosPuente.map(c => ({ x: c.x, y: c.y, celdas: st.puentes.filter(k => { const i = k % st.ter.cols, j = (k - i) / st.ter.cols; return Math.hypot((i + .5) * st.ter.size - c.x, (j + .5) * st.ter.size - c.y) < 26; }) }));
     trazos = new Map(); fx = []; capaT = -1; marca = null;
     cerrarMenu(); cerrarPlan(); seleccion = new Set(); grupos = {};
@@ -2486,22 +2528,30 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
   // Noticias que llegan aunque el lugar no esté a la vista.
   function noticia(e) {
     const nom = id => st.urbes[id].nombre;
+    const K = S.DATOS.cerco, min = n => Math.round(n / 60);
     if (e.k === 'ciudad') {
-      if (e.nuevo > 0) { registrar(`Tomaste ${nom(e.id)}`, true, e); faro(e.x, e.y, 'ciudad'); Sonido.sonar('ping'); }
-      else if (e.antes > 0) { registrar(`Cayó ${nom(e.id)}`, true, e); faro(e.x, e.y, 'ciudad'); Sonido.sonar('alarma'); }
+      if (e.nuevo > 0) { registrar(`Tomaste ${nom(e.id)}`, true, e); faro(e.x, e.y, 'ciudad'); Sonido.sonar('ping'); frenar(`tomaste ${nom(e.id)}`); }
+      else if (e.antes > 0) { registrar(`Cayó ${nom(e.id)}`, true, e); faro(e.x, e.y, 'ciudad'); Sonido.sonar('alarma'); frenar(`cayó ${nom(e.id)}`); }
     } else if (e.k === 'batalla') {
       const u = st.urbes[e.id];
-      if (u.dueno > 0 || e.a === 0) { registrar(`Batalla por ${nom(e.id)}`, true, e); faro(e.x, e.y, 'combate'); }
-    } else if (e.k === 'revuelta' && e.s === 0) { registrar(`Revuelta en ${nom(e.id)}`, true, e); faro(e.x, e.y, 'base'); Sonido.sonar('alarma'); }
+      if (u.dueno > 0 || e.a === 0) { registrar(`Batalla por ${nom(e.id)}`, true, e); faro(e.x, e.y, 'combate'); frenar(`batalla por ${nom(e.id)}`); }
+    } else if (e.k === 'revuelta' && e.s === 0) { registrar(`Revuelta en ${nom(e.id)}`, true, e); faro(e.x, e.y, 'base'); Sonido.sonar('alarma'); frenar(`revuelta en ${nom(e.id)}`); }
+    else if (e.k === 'cercada') {
+      if (e.s === 0) { registrar(`${nom(e.id)} cercada: capitula en ${min(K.ciudad - K.aviso)} min si no llega suministro`, true, e); faro(e.x, e.y, 'base'); Sonido.sonar('alarma'); frenar(`${nom(e.id)} cercada`); }
+      else registrar(`${nom(e.id)} quedó cercada`, false, e);
+    } else if (e.k === 'capitula') registrar(e.s === 0 ? `${nom(e.id)} capituló por cerco` : `${nom(e.id)} capituló`, true, e);
+    else if (e.k === 'aislada' && e.s === 0) { registrar(`${S.NOMBRES[e.c]} aislada: se rinde en ${min(K.unidad - K.aviso)} min`, true, e); faro(e.x, e.y, 'combate'); frenar('compañía aislada'); }
+    else if (e.k === 'rendicion' && e.s === 0) { registrar(`Una compañía de ${S.NOMBRES[e.c]} se rindió, cercada`, true, e); frenar('una compañía se rindió'); }
     else if (e.k === 'pacificada' && e.s === 0) registrar(`${nom(e.id)} pacificada`, false, e);
-    else if (e.k === 'sinAire' && e.s === 0) registrar('Sin aire disponible para un área de control', true);
+    else if (e.k === 'sinAire' && e.s === 0) { registrar('Sin aire disponible para un área de control', true); frenar('sin aire para un área'); }
     else if (e.k === 'lista' && e.s === 0) registrar(`${S.NOMBRES[e.c]} lista`, false, e);
     else if (e.k === 'parte' && e.s === 0) {
       const T = S.DATOS.misiones[e.tipo], ds = [e.res.impactos ? `${e.res.impactos} impactos` : 'sin impactos', e.res.perdidas ? `${e.res.perdidas} ${e.res.perdidas === 1 ? 'pérdida' : 'pérdidas'}` : 'sin pérdidas'];
+      frenar(`parte de la misión M${e.id}`);
       registrar(`Parte M${e.id} · ${T.nombre}: ${e.tipo === 'reconocimiento' || e.tipo === 'refuerzo' || e.tipo === 'asalto' ? (e.res.perdidas ? ds[1] : 'cumplida') : ds.join(', ')}`, !!e.res.perdidas, e);
     }
   }
-  const NOTICIA = new Set(['ciudad', 'batalla', 'revuelta', 'pacificada', 'sinAire', 'lista', 'parte']);
+  const NOTICIA = new Set(['ciudad', 'batalla', 'revuelta', 'pacificada', 'sinAire', 'lista', 'parte', 'cercada', 'capitula', 'aislada', 'rendicion']);
   function dibujarEfectos() {
     const vis = st.vis[0], fin = !!st.fin;
     for (const e of st.ev) {
@@ -2807,6 +2857,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     const T = S.DATOS.misiones[tipo], paquete = {};
     for (const c of T.clases) paquete[c] = 0;
     plan = { tipo, p, titulo, paquete, tropas: { [S.INF]: 0, [S.BLI]: 0 } };
+    if (saltando) { saltando = false; vel = velAntes; pintarVel(); }
     if (corriendo) { corriendo = false; pausaPorPlan = true; $('pausa').textContent = 'seguir'; }
     pintarPlan();
   }
@@ -3024,14 +3075,31 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     cambiarNivel(e.deltaY < 0 ? 1 : -1, e.clientX, e.clientY);
   }, { passive: false });
 
+  // Tiempo inteligente: algo que pide tu atención baja la velocidad sola; en salto, pausa.
+  const pintarVel = () => { $('vel').textContent = saltando ? '▸▸' : '×' + vel; $('salto').setAttribute('aria-pressed', String(saltando)); };
+  function frenar(motivo) {
+    if (st.fin) return;
+    if (saltando) {
+      saltando = false; vel = velAntes; corriendo = false; $('pausa').textContent = 'seguir'; pintarVel();
+      aviso(`en pausa · ${motivo}`, 1e9);
+    } else if (vel > 1 && corriendo) { vel = 1; pintarVel(); aviso(`velocidad ×1 · ${motivo}`, 3000); }
+  }
+  function saltar() {
+    if (st.fin || !$('parte').hidden || !$('plan').hidden) return;
+    if (saltando) { saltando = false; vel = velAntes; pintarVel(); aviso('salto cancelado'); return; }
+    saltando = true; velAntes = vel; vel = 80; pausaPorPlan = false;
+    if (!corriendo) { corriendo = true; $('pausa').textContent = 'pausa'; }
+    pintarVel(); aviso('avanzando hasta el próximo evento…', 2500);
+  }
   function alternarPausa() {
     if (st.fin || !$('parte').hidden) return;
+    if (saltando) { saltando = false; vel = velAntes; pintarVel(); }
     pausaPorPlan = false;
     corriendo = !corriendo;
     $('pausa').textContent = corriendo ? 'pausa' : 'seguir';
     aviso(corriendo ? '' : 'en pausa · puedes dar órdenes', corriendo ? 0 : 1e9);
   }
-  function alternarVel() { vel = vel === 1 ? 4 : vel === 4 ? 16 : vel === 16 ? 48 : 1; $('vel').textContent = '×' + vel; }
+  function alternarVel() { if (saltando) { saltando = false; vel = velAntes; } else vel = vel === 1 ? 4 : vel === 4 ? 16 : vel === 16 ? 48 : 1; pintarVel(); }
   function alternarSonido() { const on = Sonido.alternar(); Sonido.iniciar(); $('sonido').setAttribute('aria-pressed', String(on)); }
   function abrirParte(on) {
     $('parte').hidden = !on;
@@ -3050,6 +3118,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
   conClic('titulo', () => location.reload());
   conClic('pausa', alternarPausa);
   conClic('vel', alternarVel);
+  conClic('salto', saltar);
   conClic('todas', seleccionarTodas);
   conClic('sonido', alternarSonido);
   conClic('soltarSel', limpiarSeleccion);
@@ -3105,6 +3174,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     if (e.code === 'Space' && !enBoton) { e.preventDefault(); if (!$('parte').hidden) empezar(); else alternarPausa(); }
     else if (e.key === 'Escape') limpiarSeleccion();
     else if (k === 'v') alternarVel();
+    else if (k === 'n') saltar();
     else if (k === 't') seleccionarTodas();
     else if (k === 'x') cancelarUltima();
     else if (k === 'm') alternarSonido();
