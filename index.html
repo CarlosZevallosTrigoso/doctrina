@@ -64,7 +64,8 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
 
 #mando { position: fixed; display: grid; gap: 8px; justify-items: end;
   right: calc(12px + env(safe-area-inset-right, 0px)); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
-#creditos { color: var(--hueso); font-size: var(--fs-1); font-variant-numeric: tabular-nums; background: rgba(0, 0, 0, .88); padding: 1px 6px; border-radius: 2px; }
+#moral.grave { color: var(--misil); }
+#creditos, #moral { color: var(--hueso); font-size: var(--fs-1); font-variant-numeric: tabular-nums; background: rgba(0, 0, 0, .88); padding: 1px 6px; border-radius: 2px; }
 #fuerzas { display: grid; gap: 0; background: rgba(0, 0, 0, .88); border-radius: 2px; padding: 3px 6px; min-width: 164px; font-variant-numeric: tabular-nums; }
 #fuerzas .f { display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: 8px; color: var(--gris); padding: 1px 0; }
 #fuerzas i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
@@ -194,6 +195,7 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
     <span id="selN"></span>
     <button id="soltarSel" type="button" title="Quitar la selección y volver a todas las opciones (Esc)">sin selección</button>
   </div>
+  <div id="moral" role="status" aria-label="Moral de cada país" title="Baja con las bajas, las ciudades perdidas y el tiempo; sube al tomar ciudades. En cero, el país colapsa"></div>
   <div id="creditos" role="status" aria-label="Créditos"></div>
   <div id="fuerzas" aria-label="Fuerzas disponibles"></div>
   <div id="ctrl">
@@ -213,7 +215,7 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
     <h1>doctrina</h1>
     <p>Eres el comandante del teatro de operaciones. Tu capital está abajo a la izquierda; la enemiga, arriba a la derecha. El enemigo ve lo mismo que tú: solo lo que alcanzan sus sensores.</p>
     <ul>
-      <li><b>Objetivo:</b> toma la capital enemiga, o mantén dos tercios de las ciudades durante 5 minutos.</li>
+      <li><b>Objetivo:</b> toma la capital enemiga, mantén dos tercios de las ciudades durante 5 minutos, o agota su moral antes de que se agote la tuya.</li>
       <li><b>Áreas de control:</b> haz clic en el mapa y designa un área. Cuando haya aire disponible, los cazas y el apoyo salen solos.</li>
       <li><b>Misiones:</b> haz clic en un objetivo, elige Misión y arma el paquete: qué aparatos y qué tropas van. Llegan a la vez y luego recibes un parte.</li>
       <li><b>Tropas:</b> un clic en una compañía la selecciona; otro clic en el mapa la mueve. La infantería siempre viaja en camión y al llegar desembarca.</li>
@@ -225,6 +227,7 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
         <li><b>Batallas:</b> cada ciudad tiene barrios (los cuadritos). Una batalla los disputa uno a uno; cuando el atacante tiene la mayoría, la ciudad cae. Clic en una batalla de la lista te lleva allí.</li>
         <li><b>Ocupación:</b> una ciudad tomada necesita guarnición. Si no, surge resistencia y puede sublevarse. Bombardearla ayuda a tomarla, pero luego produce menos y es más hostil.</li>
         <li><b>Suministro:</b> viene de tu capital y tus depósitos por tu territorio. Lo que queda cortado rinde menos y se desgasta. El agua solo se cruza por puentes, que se pueden destruir.</li>
+        <li><b>Moral:</b> la guerra cansa. Cada compañía o avión perdido y cada ciudad que cae bajan la moral del país; tomar ciudades la sube, y el tiempo la gasta despacio. Con la moral baja las ciudades rinden y resisten menos. En cero, el país colapsa y pierde. Los misiles y drones gastados casi no pesan.</li>
         <li><b>Cerco:</b> una compañía detenida lejos de tu línea de abastecimiento se rinde a los 5 minutos. Una ciudad cortada de tu capital y tus depósitos capitula a los 6 si el enemigo ya llega hasta ella. Un depósito o recuperar el territorio rompe el cerco.</li>
         <li><b>Tiempo:</b> al acelerar, la velocidad vuelve sola a ×1 cuando hay una batalla, cae una ciudad o llega un parte. <kbd>N</kbd> avanza hasta el próximo evento y pausa.</li>
         <li><b>Cupo de tierra:</b> sostienes 12 compañías más una por ciudad propia. Perder territorio deja de pagar el ejército.</li>
@@ -695,6 +698,8 @@ const DOCTRINA = (() => {
       ingreso: 5, capital: 3, bono: 60, dolor: { golpe: 0.05, guar: 3, moral: 0.05 }, repara: 0.0008, antiguedad: 180 },
     resistencia: { sube: 0.008, porDano: 0.03, baja: 0.002, guardia: 8, golpe: 6, cada: 10 },
     suministro: { alcance: 8, cada: 150, desgaste: 0.012 },
+    // Agotamiento de guerra: 0 es moral intacta, 1 es el colapso del país.
+    agotamiento: { tiempo: 0.00002, tierra: 0.006, avion: 0.0025, dron: 0.0005, ciudad: 0.04, ingreso: 0.4, moral: 0.5, avisos: [0.5, 0.75, 0.9] },
     // Cerco: lo que queda cortado del suministro avisa, y si nadie lo socorre, se rinde.
     cerco: { aviso: 45, unidad: 300, ciudad: 360, linea: 30 },
     creditos: { inicio: 900 },
@@ -926,7 +931,7 @@ const DOCTRINA = (() => {
       roto: new Int32Array(n), rotos: [], campos: new Map(), anclas: new Int32Array(n).fill(-1), genRutas: 0, cuotaRutas: 4,
       velT: [new Float32Array(n), new Float32Array(n)],
       ciudades: [], puentes: [], vigia: [[], []], radar: [[], []], fotos: [new Map(), new Map()], alertas: [[], []],
-      urbes: [], conq: [0, 0], stats: { bajas: [0, 0], fuerzaPerdida: [0, 0] }, bases: [{ ...A.BASES[0], s: 0, signo: 1 }, { ...A.BASES[1], s: 1, signo: -1 }],
+      urbes: [], conq: [0, 0], agot: [0, 0], stats: { bajas: [0, 0], fuerzaPerdida: [0, 0] }, bases: [{ ...A.BASES[0], s: 0, signo: 1 }, { ...A.BASES[1], s: 1, signo: -1 }],
     };
     st.v = DATOS.clases.map(c => DATOS.dRef / c.cruce);
     const R = DATOS.relieve;
@@ -1224,9 +1229,15 @@ const DOCTRINA = (() => {
     if (!f) return Math.hypot(tx - x, ty - y) / st.v[c];
     return f[celdaDe(st, x, y)] * st.ter.size / st.v[c];
   }
+  // Sube o baja el agotamiento de un bando y avisa al cruzar un umbral.
+  function cansar(st, s, d) {
+    const a = st.agot[s], b = Math.max(0, a + d); st.agot[s] = b;
+    for (const n of DATOS.agotamiento.avisos) if (a < n && b >= n) st.ev.push({ k: 'moral', s, nivel: n, x: st.bases[s].x, y: st.bases[s].y, t: st.t });
+  }
   function matar(st, u) {
     if (u.dead) return;
     u.dead = true; st.stats.bajas[u.s]++;
+    cansar(st, u.s, u.c === MISIL ? 0 : u.c === DRON ? DATOS.agotamiento.dron : u.aire ? DATOS.agotamiento.avion : DATOS.agotamiento.tierra);
     if (u.m) { const m = st.misiones.find(q => q.id === u.m); if (m) m.res.perdidas++; }
     st.ev.push({ k: 'baja', x: u.x, y: u.y, c: u.c, s: u.s, t: st.t, m: u.m, id: u.id });
   }
@@ -1279,6 +1290,7 @@ const DOCTRINA = (() => {
     if (nuevo === u.orig) u.ocupada = null; else if (u.orig && nuevo) u.ocupada = { por: nuevo, t: st.t };
     if (nuevo) { const q = ladoDe(nuevo); if (!(u.tomada & (1 << q))) { u.tomada = (u.tomada || 0) | (1 << q); if (st.t > 0) st.creditos[q] += DATOS.ciudad.bono; } }
     for (const k of u.celdas) st.ter.ctrl[k] = nuevo || 0;
+    if (st.t > 0) { if (antes) cansar(st, ladoDe(antes), DATOS.agotamiento.ciudad); if (nuevo) cansar(st, ladoDe(nuevo), -DATOS.agotamiento.ciudad); }
     st.ev.push({ k: 'ciudad', id: u.id, x: u.x, y: u.y, nuevo, antes, t: st.t });
     if (u.capital && nuevo !== u.orig) st.fin = { ganador: ladoDe(nuevo || -u.orig), t: st.t, causa: 'capital' };
   }
@@ -1339,7 +1351,7 @@ const DOCTRINA = (() => {
         const s = ladoDe(u.dueno), sum = conSuministro(st, s, u.x, u.y);
         if (sum && !u.batalla) {
           const tope = u.ocupada ? C.ocupada : u.capital ? C.guarnicion * 2 : C.guarnicion;
-          u.guar = Math.min(tope, u.guar + C.regenera); u.moral = Math.min(1, u.moral + .002); u.dano = Math.max(0, u.dano - C.repara);
+          u.guar = Math.min(tope, u.guar + C.regenera); u.moral = Math.min(1 - DATOS.agotamiento.moral * Math.min(1, st.agot[s]), u.moral + .002); u.dano = Math.max(0, u.dano - C.repara);
         } else if (!sum) { u.guar = Math.max(0, u.guar - .02); u.moral = Math.max(.1, u.moral - .002); }
         // Cercada: avisa, y si el enemigo ya la abastece y nadie rompe el cerco, capitula.
         if (sum || u.capital) u.cerco = 0;
@@ -1352,7 +1364,7 @@ const DOCTRINA = (() => {
             u.batalla = null; caerCiudad(st, u, nuevo);
           }
         }
-        st.creditos[s] += (u.capital ? C.capital : 1) * C.ingreso / 60 * (1 - u.dano * .6) * (sum ? 1 : .3);
+        st.creditos[s] += (u.capital ? C.capital : 1) * C.ingreso / 60 * (1 - u.dano * .6) * (sum ? 1 : .3) * (1 - DATOS.agotamiento.ingreso * Math.min(1, st.agot[s]));
       }
       if (u.ocupada && st.t % seg(DATOS.resistencia.cada) === 0) resistencia(st, u, L);
     }
@@ -1958,6 +1970,11 @@ const DOCTRINA = (() => {
   function verVictoria(st) {
     if (st.fin) return;
     const V = DATOS.victoria, tot = st.urbes.length, meta = Math.ceil(tot * V.fraccion);
+    // La guerra cansa a los dos; quien llega primero al límite, colapsa.
+    cansar(st, 0, DATOS.agotamiento.tiempo); cansar(st, 1, DATOS.agotamiento.tiempo);
+    if (st.agot[0] >= 1 || st.agot[1] >= 1) {
+      if (st.agot[0] !== st.agot[1]) { st.fin = { ganador: st.agot[0] > st.agot[1] ? 1 : 0, t: st.t, causa: 'colapso' }; return; }
+    }
     for (let s = 0; s < 2; s++) {
       const n = st.urbes.filter(u => u.dueno === signoDe(s)).length;
       st.conq[s] = n >= meta ? st.conq[s] + 1 : Math.max(0, st.conq[s] - 2);
@@ -2033,7 +2050,7 @@ const DOCTRINA = (() => {
     for (const u of st.unidades) { m(u.id); m(u.c); m(Math.round(u.x * 100)); m(Math.round(u.y * 100)); m(Math.round(u.fuerza * 100)); }
     for (const d of st.defensas) { m(d.id); m(d.hp); }
     for (const u of st.urbes) { m(u.dueno); m(Math.round(u.guar * 10)); }
-    m(Math.round(st.creditos[0] * 10)); m(Math.round(st.creditos[1] * 10));
+    m(Math.round(st.creditos[0] * 10)); m(Math.round(st.creditos[1] * 10)); m(Math.round(st.agot[0] * 1e6)); m(Math.round(st.agot[1] * 1e6));
     return h;
   }
 
@@ -2044,7 +2061,7 @@ const DOCTRINA = (() => {
     const mapa = A.aJSON({ nombre: st.mapa.nombre, areas: st.mapa.areas, lineas: st.mapa.lineas, simetria: false, sigG: 1 });
     const misiones = st.misiones.map(m => ({ ...m, pend: m.pend.map(p => ({ did: p.d.id, hi: p.d.hangar.indexOf(p.h), c: p.c, rol: p.rol, sale: p.sale })) }));
     return JSON.stringify({ formato: 'doctrina-partida', v: 1, mapa, t: st.t, sem: st.sem, seed: st.seed, sigId: st.sigId, sigDef: st.sigDef, sigM: st.sigM, sigZ: st.sigZ, god: st.god, fin: st.fin,
-      unidades: st.unidades, defensas: st.defensas, zonas: st.zonas, misiones, colas: st.colas, creditos: st.creditos, urbes: st.urbes, conq: st.conq, stats: st.stats, intel: st.intel,
+      agot: st.agot, unidades: st.unidades, defensas: st.defensas, zonas: st.zonas, misiones, colas: st.colas, creditos: st.creditos, urbes: st.urbes, conq: st.conq, stats: st.stats, intel: st.intel,
       fotos: st.fotos.map(m => [...m.values()]), memDef: st.memDef.map(m => [...m.values()]), alertas: st.alertas,
       ctrl: aB64(st.ter.ctrl), mem: st.mem.map(aB64), memRoto: st.memRoto.map(aB64), rotos: st.rotos.map(k => [k, st.roto[k]]) });
   }
@@ -2052,8 +2069,10 @@ const DOCTRINA = (() => {
     const o = JSON.parse(txt);
     if (!o || o.formato !== 'doctrina-partida') throw new Error('No es una partida guardada de doctrina.');
     const st = crear({ seed: o.seed, mapa: A.deJSON(o.mapa) });
-    for (const k of ['t', 'sem', 'sigId', 'sigDef', 'sigM', 'sigZ', 'god', 'fin', 'unidades', 'defensas', 'zonas', 'colas', 'creditos', 'conq', 'stats', 'intel', 'alertas']) st[k] = o[k];
-    const dur = st.urbes.map((u, i) => ({ ...o.urbes[i], celdas: u.celdas }));
+    for (const k of ['t', 'sem', 'sigId', 'sigDef', 'sigM', 'sigZ', 'god', 'fin', 'unidades', 'defensas', 'zonas', 'colas', 'creditos', 'conq', 'agot', 'stats', 'intel', 'alertas']) st[k] = o[k];
+    // Partidas guardadas antes del cerco y el agotamiento.
+    st.agot = o.agot || [0, 0]; for (const u of st.unidades) u.sinSum = u.sinSum || 0;
+    const dur = st.urbes.map((u, i) => ({ cerco: 0, ...o.urbes[i], celdas: u.celdas }));
     st.urbes = dur;
     st.fotos = o.fotos.map(l => new Map(l.map(f => [f.id, f])));
     st.memDef = o.memDef.map(l => new Map(l.map(f => [f.id, f])));
@@ -2069,7 +2088,7 @@ const DOCTRINA = (() => {
 
   return {
     DT, INF, BLI, CAZA, ATAQUE, DRON, ESPIA, MISIL, AA, AM, FORTIN, RADAR, PISTA, DEPOSITO, EMBARCANDO, MARCHA, DESEMBARCANDO, DESPLEGADA, IDA, ORBITA, REGRESO,
-    NOMBRES, DATOS, POSTURAS, crear, paso, aplicar, vista, celdaDe, dueno, transitable, destinoValido, eta, etaRuta, satelites, esSuelo, puedeConstruir, puedeReclutar, puedeComprarAire, cupoTierra,
+    NOMBRES, DATOS, POSTURAS, crear, paso, aplicar, vista, celdaDe, dueno, transitable, destinoValido, eta, etaRuta, satelites, esSuelo, puedeConstruir, puedeReclutar, puedeComprarAire, cupoTierra, matar, caerCiudad, cansar,
     iaCrear, iaDecidir, partida, avanzar, hash, mulberry, indexar, vision, calcularSuministro, golpear, pasoCiudades, resumenHangar, capitalDe, serializar, deserializar, hangarLibre,
   };
 })();
@@ -2540,6 +2559,11 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       if (e.s === 0) { registrar(`${nom(e.id)} cercada: capitula en ${min(K.ciudad - K.aviso)} min si no llega suministro`, true, e); faro(e.x, e.y, 'base'); Sonido.sonar('alarma'); frenar(`${nom(e.id)} cercada`); }
       else registrar(`${nom(e.id)} quedó cercada`, false, e);
     } else if (e.k === 'capitula') registrar(e.s === 0 ? `${nom(e.id)} capituló por cerco` : `${nom(e.id)} capituló`, true, e);
+    else if (e.k === 'moral') {
+      const p = Math.round((1 - e.nivel) * 100);
+      if (e.s === 0) { registrar(`La moral del país baja a ${p} %: si llega a cero, colapsas`, true); Sonido.sonar('alarma'); frenar(`moral en ${p} %`); }
+      else registrar(`La moral enemiga baja a ${p} %`, false);
+    }
     else if (e.k === 'aislada' && e.s === 0) { registrar(`${S.NOMBRES[e.c]} aislada: se rinde en ${min(K.unidad - K.aviso)} min`, true, e); faro(e.x, e.y, 'combate'); frenar('compañía aislada'); }
     else if (e.k === 'rendicion' && e.s === 0) { registrar(`Una compañía de ${S.NOMBRES[e.c]} se rindió, cercada`, true, e); frenar('una compañía se rindió'); }
     else if (e.k === 'pacificada' && e.s === 0) registrar(`${nom(e.id)} pacificada`, false, e);
@@ -2551,7 +2575,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       registrar(`Parte M${e.id} · ${T.nombre}: ${e.tipo === 'reconocimiento' || e.tipo === 'refuerzo' || e.tipo === 'asalto' ? (e.res.perdidas ? ds[1] : 'cumplida') : ds.join(', ')}`, !!e.res.perdidas, e);
     }
   }
-  const NOTICIA = new Set(['ciudad', 'batalla', 'revuelta', 'pacificada', 'sinAire', 'lista', 'parte', 'cercada', 'capitula', 'aislada', 'rendicion']);
+  const NOTICIA = new Set(['ciudad', 'batalla', 'revuelta', 'pacificada', 'sinAire', 'lista', 'parte', 'cercada', 'capitula', 'aislada', 'rendicion', 'moral']);
   function dibujarEfectos() {
     const vis = st.vis[0], fin = !!st.fin;
     for (const e of st.ev) {
@@ -3264,7 +3288,9 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     mk.append(fila, tx);
     const sat = $('sat'); sat.textContent = '';
     S.satelites(st, 0).forEach(q => { const e = document.createElement('span'); if (q.activo) e.className = 'activo'; e.textContent = `${q.nombre} ${q.activo ? 'pasando ' : ''}${reloj(q.faltan)}`; sat.appendChild(e); });
-    const renta = urb.filter(c => c.dueno > 0).reduce((a, c) => a + (c.capital ? S.DATOS.ciudad.capital : 1) * S.DATOS.ciudad.ingreso * (1 - (c.dano || 0) * .6) * (c.suministro ? 1 : .3), 0);
+    const ag = st.agot.map(a => Math.max(0, Math.round((1 - a) * 100)));
+    $('moral').textContent = `moral ${ag[0]} % · enemiga ${ag[1]} %`; $('moral').classList.toggle('grave', ag[0] <= 25);
+    const renta = urb.filter(c => c.dueno > 0).reduce((a, c) => a + (c.capital ? S.DATOS.ciudad.capital : 1) * S.DATOS.ciudad.ingreso * (1 - (c.dano || 0) * .6) * (c.suministro ? 1 : .3), 0) * (1 - S.DATOS.agotamiento.ingreso * Math.min(1, st.agot[0]));
     $('creditos').textContent = st.god ? 'créditos ∞' : `créditos ${Math.floor(st.creditos[0])} · +${Math.round(renta)}/min`;
     pintarOrdenes(v); pintarBatallas(v); pintarFuerzas(v);
     podar();
@@ -3280,8 +3306,8 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     guardar(false);
     Sonido.sonar('fin', f.ganador === 0);
     const gano = f.ganador === 0;
-    $('finTitulo').textContent = f.causa === 'capital' ? (gano ? 'Capital enemiga tomada' : 'Tu capital cayó') : f.causa === 'ciudades' ? (gano ? 'Ciudades bajo tu control' : 'El enemigo controla las ciudades') : (gano ? 'El enemigo quedó sin fuerzas' : 'Te quedaste sin fuerzas');
-    $('finTexto').textContent = f.causa === 'ciudades' ? `${gano ? 'Mantuviste' : 'Mantuvo'} dos tercios de las ciudades durante ${S.DATOS.victoria.segundos / 60} minutos.` : '';
+    $('finTitulo').textContent = f.causa === 'colapso' ? (gano ? 'El enemigo colapsó' : 'Tu país colapsó') : f.causa === 'capital' ? (gano ? 'Capital enemiga tomada' : 'Tu capital cayó') : f.causa === 'ciudades' ? (gano ? 'Ciudades bajo tu control' : 'El enemigo controla las ciudades') : (gano ? 'El enemigo quedó sin fuerzas' : 'Te quedaste sin fuerzas');
+    $('finTexto').textContent = f.causa === 'colapso' ? `${gano ? 'Su' : 'Tu'} moral llegó a cero: demasiadas bajas y ciudades perdidas para seguir la guerra.` : f.causa === 'ciudades' ? `${gano ? 'Mantuviste' : 'Mantuvo'} dos tercios de las ciudades durante ${S.DATOS.victoria.segundos / 60} minutos.` : '';
     if (marcas.conGod) $('finTexto').textContent += ' Partida jugada con GOD.';
     $('finT').textContent = reloj(f.t * S.DT);
     $('finA').textContent = pct(st.ter.cuenta[0]); $('finB').textContent = pct(st.ter.cuenta[1]);
