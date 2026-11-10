@@ -78,6 +78,10 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
 /* La columna no debe tragarse los clics de sus huecos: solo sus paneles reciben el puntero. */
 #mando { pointer-events: none; }
 #mando > * { pointer-events: auto; }
+/* Lo que no se ve no debe bloquear: los huecos de la barra de botones y el texto suelto dejan pasar el puntero al mapa. */
+#mando > #ctrl, #mando > #moral, #mando > #creditos, #mando > #seleccion { pointer-events: none; }
+#ctrl > *, #seleccion > button { pointer-events: auto; }
+#registro > div { justify-self: start; }
 #moral.grave { color: var(--misil); }
 #creditos, #moral { color: var(--hueso); font-size: var(--fs-1); font-variant-numeric: tabular-nums; background: rgba(0, 0, 0, .88); padding: 1px 6px; border-radius: 2px; }
 #fuerzas { display: grid; gap: 0; background: rgba(0, 0, 0, .88); border-radius: 2px; padding: 3px 6px; min-width: 164px; font-variant-numeric: tabular-nums; }
