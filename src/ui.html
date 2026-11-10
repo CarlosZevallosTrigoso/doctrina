@@ -284,6 +284,7 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
         <li><b>Ocupación:</b> una ciudad tomada necesita guarnición. Si no, surge resistencia y puede sublevarse. Bombardearla ayuda a tomarla, pero luego produce menos y es más hostil.</li>
         <li><b>Suministro:</b> viene de tu capital y tus depósitos por tu territorio. Lo que queda cortado rinde menos y se desgasta. El agua solo se cruza por puentes, que se pueden destruir.</li>
         <li><b>Signos:</b> cuatro esquinas alrededor de una compañía, atrincherada; una cola, en marcha; anillo que parpadea, subiendo o bajando del camión. Un arco alrededor es la fuerza que le queda, rojo si es poca. La barra sobre una batalla es la balanza: la parte llena es tuya. La línea punteada clara marca tu abastecimiento pleno y la más tenue, hasta dónde una tropa no queda cercada. Las punteadas hacia un objetivo son misiones en curso.</li>
+        <li><b>Atacar o defender:</b> al empezar eliges tu papel. El atacante tiene más tropa y aviación y debe tener en su poder 3 ciudades del defensor, o su capital, antes de que acabe el día 5. El defensor tiene menos tropa, pero empieza atrincherada y fortifica antes de la guerra con sus obras iniciales; gana si resiste hasta el plazo, si la moral del atacante colapsa o si toma su capital. Nada impide al defensor contraatacar. En «campaña» la guerra es simétrica y sin plazo. Al terminar puedes jugar el otro papel en el mismo mapa.</li>
         <li><b>Mando (D):</b> eliges cuánto decide tu estado mayor. <i>Baja</i>: lleva la logística. <i>Media</i>: además la defensa aérea y el reconocimiento. <i>Alta</i>: además los fuegos y los asaltos, sobre las ciudades que marques como objetivo. <i>Total</i>: lo decide todo. Una orden tuya directa manda sobre él diez minutos. Se cambia cuando quieras.</li>
         <li><b>Doctrina:</b> seis decisiones que valen para todo tu bando: postura, preservar la fuerza, radares, artillería, riesgo aéreo y bombardeo de ciudades. Un cambio tarda 20 segundos en llegar a las unidades.</li>
         <li><b>Escala y reloj:</b> una celda del mapa es 1 km y un segundo de juego es un minuto. La guerra empieza a las 06:00 del día 1. De 20:00 a 06:00 es de noche: la tropa y los drones ven menos y el satélite óptico no ve; cazas y aviones espía llevan radar y no lo notan. Una tormenta reduce la vista y deja a la aviación con la mitad de su efecto.</li>
@@ -332,6 +333,7 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
       </div>
       <div id="msgMapa" role="status"></div>
     </div>
+    <div class="nivel"><span>Tu papel</span><div id="rolInicio" class="ops"></div><small id="rolAyuda"></small></div>
     <div class="nivel"><span>Automatización</span><div id="nivelInicio" class="ops"></div><small id="nivelAyuda"></small></div>
     <div class="acciones"><button id="empezar" class="accion" type="button">Empezar</button><button id="tutorial" class="accion" type="button">Tutorial</button><button id="continuar" class="accion" type="button" hidden>Continuar partida</button></div>
   </div>
@@ -349,6 +351,6 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
       <div><small>bajas enemigas</small><b id="finBB"></b></div>
       <div><small>doctrina enemiga</small><b id="finP"></b></div>
     </div>
-    <div class="acciones"><button id="otra" class="accion" type="button">Otra partida</button></div>
+    <div class="acciones"><button id="otra" class="accion" type="button">Otra partida</button><button id="otroPapel" class="accion" type="button" hidden>Jugar el otro papel</button></div>
   </div>
 </section>

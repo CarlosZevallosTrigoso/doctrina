@@ -21,11 +21,12 @@
     return u;
   }
   // manual[s]: ese bando arranca con su tropa en reserva en la capital y la coloca antes de que corra el reloj.
-  function crear({ seed = 1, mapa = null, manual = [false, false] } = {}) {
+  // modo: null (campaña simétrica) o { atacante: 0|1 } para ataque/defensa.
+  function crear({ seed = 1, mapa = null, manual = [false, false], modo = null } = {}) {
     const m = mapa || A.crearVacio(), der = A.derivar(m);
     const size = A.CELDA, cols = A.COLS, rows = A.ROWS, W = A.W, H = A.H, n = A.N;
     const st = {
-      W, H, despliegue: !!(manual[0] || manual[1]), sem: seed | 0, seed, t: 0, sigId: 1, sigDef: 1, sigM: 1, sigZ: 1, fin: null, god: false,
+      W, H, despliegue: !!(manual[0] || manual[1]), modo: modo ? { atacante: modo.atacante ? 1 : 0, plazo: seg(DATOS.asalto.dias * 1440 - DATOS.reloj.inicio), meta: DATOS.asalto.meta } : null, obras: [0, 0], sem: seed | 0, seed, t: 0, sigId: 1, sigDef: 1, sigM: 1, sigZ: 1, fin: null, god: false,
       unidades: [], ev: [], defensas: [], zonas: [], misiones: [], colas: [[], []],
       creditos: [DATOS.creditos.inicio, DATOS.creditos.inicio], memDef: [new Map(), new Map()],
       ter: { cols, rows, size, ctrl: new Float32Array(n), cuenta: [0, 0] },
@@ -130,21 +131,25 @@
   }
   function capitalDe(st, s) { return st.urbes.find(u => u.capital && u.orig === signoDe(s)); }
   function desplegarInicio(st, s, manual) {
-    const F = DATOS.fuerzasIniciales, D = DATOS.instalaciones, b = st.bases[s], cap = capitalDe(st, s);
+    const rol = st.modo ? (st.modo.atacante === s ? 'atacante' : 'defensor') : null;
+    const F = rol ? { ...DATOS.fuerzasIniciales, ...DATOS.asalto[rol] } : DATOS.fuerzasIniciales, D = DATOS.instalaciones, b = st.bases[s], cap = capitalDe(st, s);
     let pista = null;
     for (const q of D.enCapital) {
       const a = q.ang * Math.PI / 180;
       const d = nuevaInstalacion(st, s, q.t, b.x + b.signo * q.r * Math.cos(a), b.y - b.signo * q.r * Math.sin(a), 0, 0, 0, q.t === PISTA ? { hp: 14 } : {});
       if (q.t === PISTA) pista = d;
     }
-    for (const [c, n] of Object.entries(F.hangar)) for (let i = 0; i < n; i++) pista.hangar.push({ c: +c, listo: 0, res: 0 });
+    const mas = rol === 'atacante' ? DATOS.asalto.aviacion : 1;
+    for (const [c, n] of Object.entries(F.hangar)) for (let i = 0; i < Math.round(n * mas); i++) pista.hangar.push({ c: +c, listo: 0, res: 0 });
+    if (rol === 'atacante') st.abastos[s] = DATOS.abastos.reserva.base;
+    if (rol === 'defensor') st.obras[s] = DATOS.asalto.obras;
     // Las tropas iniciales guarnecen las ciudades propias más cercanas a la frontera y la capital.
     const propias = st.urbes.filter(u => u.dueno === signoDe(s) && !u.capital).sort((p, q) => Math.hypot(q.x - b.x, q.y - b.y) - Math.hypot(p.x - b.x, p.y - b.y));
     for (let i = 0; i < F.inf; i++) nuevaUnidad(st, s, INF, cap.x, cap.y);
     for (let i = 0; i < F.bli; i++) nuevaUnidad(st, s, BLI, cap.x, cap.y);
     for (let i = 0; i < F.art; i++) nuevaUnidad(st, s, ART, cap.x, cap.y);
     for (let i = 0; i < F.aam; i++) nuevaUnidad(st, s, AAM, cap.x, cap.y);
-    if (manual) reserva(st, s); else repartir(st, s);
+    if (manual) reserva(st, s); else { repartir(st, s); fortificarAuto(st, s); }
   }
   const tierraDe = (st, s) => st.unidades.filter(u => !u.dead && u.s === s && !u.aire);
   const poner = (st, u, x, y) => { const q = destinoValido(st, x, y); u.x = u.px = u.tx = q.x; u.y = u.py = u.ty = q.y; u.st = DESPLEGADA; u.m = 0; };
@@ -153,10 +158,24 @@
     const cap = capitalDe(st, s), L = tierraDe(st, s);
     L.forEach((u, i) => { const a = i / L.length * Math.PI * 2; poner(st, u, cap.x + Math.cos(a) * 64, cap.y + Math.sin(a) * 64); });
   }
-  // Reparto automático: guarnece las ciudades propias más cercanas a la frontera.
+  // Fortificación automática del defensor: gasta las obras iniciales en fortines y antiaéreas en las ciudades del frente.
+  function fortificarAuto(st, s) {
+    if (!st.modo || st.modo.atacante === s) return;
+    const b = st.bases[s], T = DATOS.instalaciones.tipos;
+    const frente = st.urbes.filter(u => u.dueno === signoDe(s) && !u.capital).sort((p, q) => Math.hypot(q.x - b.x, q.y - b.y) - Math.hypot(p.x - b.x, p.y - b.y));
+    let i = 0;
+    while (st.obras[s] >= T[FORTIN].costo && i < 12) {
+      const c = frente[i % Math.max(1, frente.length)] || capitalDe(st, s), t = i % 3 === 2 && st.obras[s] >= T[AA].costo ? AA : FORTIN, a = i * 2.1;
+      const q = destinoValido(st, c.x + Math.cos(a) * 62, c.y + Math.sin(a) * 62);
+      if (!st.defensas.some(d => Math.hypot(d.x - q.x, d.y - q.y) < DATOS.instalaciones.separacion)) { nuevaInstalacion(st, s, t, q.x, q.y, 0, 0, 0); st.obras[s] -= T[t].costo; }
+      i++;
+    }
+  }
+  // Reparto automático: guarnece las ciudades propias más cercanas a la frontera. El atacante se concentra en dos ejes.
   function repartir(st, s) {
     const b = st.bases[s], cap = capitalDe(st, s);
     const propias = st.urbes.filter(u => u.dueno === signoDe(s) && !u.capital).sort((p, q) => Math.hypot(q.x - b.x, q.y - b.y) - Math.hypot(p.x - b.x, p.y - b.y));
+    if (st.modo && st.modo.atacante === s) propias.length = Math.min(propias.length, 2);
     const inf = tierraDe(st, s).filter(u => u.c === INF), bli = tierraDe(st, s).filter(u => u.c !== INF);
     inf.forEach((w, i) => { const u = propias[i % Math.max(1, propias.length)] || cap; poner(st, w, u.x + (i % 3 - 1) * 26, u.y + 26); });
     bli.forEach((w, i) => { const u = propias[i % Math.max(1, propias.length)] || cap; poner(st, w, u.x + (i % 2) * 30 - 15, u.y - 30); });

@@ -35,6 +35,8 @@
     if (st.t % 6 === 0) { indexar(st); vision(st); }
     if (st.ev.length > 800) st.ev.splice(0, st.ev.length - 800);
   }
+  // Ciudades que eran del defensor y hoy tiene el atacante.
+  const tomadas = st => { const a = signoDe(st.modo.atacante); return st.urbes.filter(u => u.orig === -a && u.dueno === a).length; };
   function verVictoria(st) {
     if (st.fin) return;
     const V = DATOS.victoria, tot = st.urbes.length, meta = Math.ceil(tot * V.fraccion);
@@ -43,8 +45,14 @@
     if (st.agot[0] >= 1 || st.agot[1] >= 1) {
       if (st.agot[0] !== st.agot[1]) { st.fin = { ganador: st.agot[0] > st.agot[1] ? 1 : 0, t: st.t, causa: 'colapso' }; return; }
     }
+    if (st.modo) {
+      // Ataque/defensa: el atacante debe tener en su poder tantas ciudades del defensor antes del plazo; si no, gana el defensor.
+      const a = st.modo.atacante;
+      if (tomadas(st) >= st.modo.meta) { st.fin = { ganador: a, t: st.t, causa: 'objetivos' }; return; }
+      if (st.t >= st.modo.plazo) { st.fin = { ganador: 1 - a, t: st.t, causa: 'plazo' }; return; }
+    }
     for (let s = 0; s < 2; s++) {
-      const n = st.urbes.filter(u => u.dueno === signoDe(s)).length;
+      const n = st.modo ? 0 : st.urbes.filter(u => u.dueno === signoDe(s)).length;
       st.conq[s] = n >= meta ? st.conq[s] + 1 : Math.max(0, st.conq[s] - 2);
       if (st.conq[s] >= V.segundos) { st.fin = { ganador: s, t: st.t, causa: 'ciudades' }; return; }
       const fuerza = st.unidades.filter(u => u.s === s && !u.aire).length + st.colas[s].length, hay = st.urbes.some(u => u.dueno === signoDe(s));
@@ -75,7 +83,7 @@
     const intel = st.intel[s], be = st.bases[1 - s], signo = signoDe(s);
     return {
       s, t: st.t, W: st.W, H: st.H, cols: T.cols, rows: T.rows, size: T.size, base: st.bases[s], baseEnemiga: { x: be.x, y: be.y },
-      propias, contactos, doctrina: st.doctrina[s], doctrinaPend: st.doctrinaPend[s], abastos: st.abastos[s], minuto: minutoDe(st), noche: esNoche(st), tormenta: st.tormenta > st.t, linea: (x, y) => conLinea(st, s, x, y), celdas: st.mem[s], visibles: v, pasable: k => transitable(st, k), fotos: [...st.fotos[s].values()], alertas: st.alertas[s],
+      propias, contactos, modo: st.modo, tomadas: st.modo ? tomadas(st) : 0, agot: st.agot, doctrina: st.doctrina[s], doctrinaPend: st.doctrinaPend[s], abastos: st.abastos[s], minuto: minutoDe(st), noche: esNoche(st), tormenta: st.tormenta > st.t, linea: (x, y) => conLinea(st, s, x, y), celdas: st.mem[s], visibles: v, pasable: k => transitable(st, k), fotos: [...st.fotos[s].values()], alertas: st.alertas[s],
       creditos: st.creditos[s], defensas: st.defensas.filter(d => d.s === s), defensasE: st.fin ? st.defensas.filter(d => d.s !== s).map(d => ({ id: d.id, x: d.x, y: d.y, t: d.t, s: d.s, enObra: st.t < d.listo })) : [...st.memDef[s].values()],
       hangar: resumenHangar(st, s), cola: st.colas[s], zonas: st.zonas.filter(z => z.s === s), misiones: st.misiones.filter(m => m.s === s),
       ciudades: st.urbes.map(u => {
@@ -84,20 +92,23 @@
         return {
           id: u.id, nombre: u.nombre, x: u.x, y: u.y, capital: u.capital, n: u.celdas.length, barrios: st.fin || u.dueno === signo || v[celdaDe(st, u.x, u.y)] ? u.barrios : null, desde: u.desde,
           dueno: conocida ? q.dueno : duenoMayoria(u.celdas, k => st.mem[s][k]), guar: conocida ? q.guar : null, moral: conocida ? q.moral : null, dano: conocida ? q.dano : null, edad: conocida ? st.t - q.t : Infinity,
-          batalla: (u.dueno === signo || v[celdaDe(st, u.x, u.y)]) ? u.batalla : null, ocupada: u.ocupada, res: u.dueno === signo ? u.res : 0, suministro: conSuministro(st, s, u.x, u.y), prog: u.prog, cerco: u.dueno === signo ? u.cerco : 0,
+          batalla: (u.dueno === signo || v[celdaDe(st, u.x, u.y)]) ? u.batalla : null, ocupada: u.ocupada, res: u.dueno === signo ? u.res : 0, orig: u.orig, suministro: conSuministro(st, s, u.x, u.y), prog: u.prog, cerco: u.dueno === signo ? u.cerco : 0,
         };
       }),
     };
   }
 
   /* ---------- Partida ---------- */
-  function partida({ seed = 1, mapa = null, ia0 = null, ia1 = 'auto', manual = false } = {}) {
-    const st = crear({ seed, mapa, manual: [!!manual, false] });
+  // rol: 'atacante' o 'defensor' es el papel del jugador (lado 0) en el modo ataque/defensa; sin rol, campaña simétrica.
+  function partida({ seed = 1, mapa = null, ia0 = null, ia1 = 'auto', manual = false, rol = null } = {}) {
+    const st = crear({ seed, mapa, manual: [!!manual, false], modo: rol ? { atacante: rol === 'atacante' ? 0 : 1 } : null });
     const ias = [ia0, ia1].map((x, i) => {
       if (!x) return null;
       if (typeof x === 'function') return { fn: x };
       return iaCrear((seed * 31 + i * 7919) | 0, x === 'auto' ? null : x);
     });
+    // En ataque/defensa cada IA juega su papel.
+    if (st.modo) ias.forEach((ia, i) => { if (ia && !ia.fn) { ia.rol = st.modo.atacante === i ? 'atacante' : 'defensor'; st.doctrina[i].postura = ia.rol === 'atacante' ? 'ofensiva' : 'defensiva'; } });
     // La IA metódica cuida su fuerza y calla sus radares; las demás pelean con la doctrina por defecto.
     ias.forEach((ia, i) => { if (ia && ia.nombre === 'metodica') Object.assign(st.doctrina[i], { preservar: 0.5, emisiones: 'amenaza' }); });
     return { st, ias };
@@ -110,6 +121,7 @@
     const ia = g.ias[0] && g.ias[0].staff ? g.ias[0] : iaCrear((st.seed * 17 + 4241) | 0, 'equilibrada');
     ia.staff = true; ia.sec = { log: false, def: false, fue: false, man: false }; for (const k of N[n]) ia.sec[k] = true;
     ia.marcados = n === 'alta';   // en «alta» solo ataca lo que el mando marca
+    ia.rol = st.modo ? (st.modo.atacante === 0 ? 'atacante' : 'defensor') : null;
     g.ias[0] = ia; return n;
   }
   // Orden directa del jugador: queda marcada para que su estado mayor no la deshaga.
@@ -144,7 +156,7 @@
     const mapa = A.aJSON({ nombre: st.mapa.nombre, areas: st.mapa.areas, lineas: st.mapa.lineas, simetria: false, sigG: 1 });
     const misiones = st.misiones.map(m => ({ ...m, pend: m.pend.map(p => ({ did: p.d.id, hi: p.d.hangar.indexOf(p.h), c: p.c, rol: p.rol, sale: p.sale })) }));
     return JSON.stringify({ formato: 'doctrina-partida', v: 1, mapa, t: st.t, sem: st.sem, seed: st.seed, sigId: st.sigId, sigDef: st.sigDef, sigM: st.sigM, sigZ: st.sigZ, god: st.god, fin: st.fin,
-      agot: st.agot, abastos: st.abastos, tormenta: st.tormenta, doctrina: st.doctrina, doctrinaPend: st.doctrinaPend, unidades: st.unidades, defensas: st.defensas, zonas: st.zonas, misiones, colas: st.colas, creditos: st.creditos, urbes: st.urbes, conq: st.conq, stats: st.stats, intel: st.intel,
+      agot: st.agot, modo: st.modo, obras: st.obras, abastos: st.abastos, tormenta: st.tormenta, doctrina: st.doctrina, doctrinaPend: st.doctrinaPend, unidades: st.unidades, defensas: st.defensas, zonas: st.zonas, misiones, colas: st.colas, creditos: st.creditos, urbes: st.urbes, conq: st.conq, stats: st.stats, intel: st.intel,
       fotos: st.fotos.map(m => [...m.values()]), memDef: st.memDef.map(m => [...m.values()]), alertas: st.alertas,
       ctrl: aB64(st.ter.ctrl), mem: st.mem.map(aB64), memRoto: st.memRoto.map(aB64), rotos: st.rotos.map(k => [k, st.roto[k]]) });
   }
@@ -152,9 +164,10 @@
     const o = JSON.parse(txt);
     if (!o || o.formato !== 'doctrina-partida') throw new Error('No es una partida guardada de doctrina.');
     const st = crear({ seed: o.seed, mapa: A.deJSON(o.mapa) });
-    for (const k of ['t', 'sem', 'sigId', 'sigDef', 'sigM', 'sigZ', 'god', 'fin', 'unidades', 'defensas', 'zonas', 'colas', 'creditos', 'conq', 'agot', 'despliegue', 'abastos', 'tormenta', 'doctrina', 'doctrinaPend', 'stats', 'intel', 'alertas']) st[k] = o[k];
+    for (const k of ['t', 'sem', 'sigId', 'sigDef', 'sigM', 'sigZ', 'god', 'fin', 'unidades', 'defensas', 'zonas', 'colas', 'creditos', 'conq', 'agot', 'modo', 'obras', 'despliegue', 'abastos', 'tormenta', 'doctrina', 'doctrinaPend', 'stats', 'intel', 'alertas']) st[k] = o[k];
     // Partidas guardadas antes del cerco y el agotamiento.
     st.agot = o.agot || [0, 0]; for (const u of st.unidades) { u.sinSum = u.sinSum || 0; u.fort = u.fort || 0; u.delata = u.delata || 0; u.rota = !!u.rota; if (u.mun === undefined) { u.mun = 1; u.comb = 1; } }
+    if (!o.obras) { st.obras = [0, 0]; st.modo = o.modo || null; }
     if (!o.doctrina) { st.doctrina = [0, 1].map(() => ({ ...DATOS.doctrina.inicial, objetivos: [] })); st.doctrinaPend = [null, null]; }
     st.abastos = o.abastos || [DATOS.abastos.reserva.inicio, DATOS.abastos.reserva.inicio]; st.tormenta = o.tormenta || 0;
     const dur = st.urbes.map((u, i) => ({ cerco: 0, ...o.urbes[i], celdas: u.celdas }));
@@ -174,7 +187,7 @@
   return {
     DT, INF, BLI, CAZA, ATAQUE, DRON, ESPIA, MISIL, ART, AAM, AA, AM, FORTIN, RADAR, PISTA, DEPOSITO, EMBARCANDO, MARCHA, DESEMBARCANDO, DESPLEGADA, IDA, ORBITA, REGRESO,
     NOMBRES, DATOS, POSTURAS, crear, paso, aplicar, vista, celdaDe, dueno, transitable, destinoValido, eta, etaRuta, satelites, esSuelo, puedeConstruir, puedeReclutar, puedeComprarAire, cupoTierra, minutoDe, esNoche, quebrar, danar, matar, caerCiudad, cansar,
-    iaCrear, iaDecidir, estadoMayor, ordenar, partida, avanzar, hash, mulberry, indexar, vision, calcularSuministro, golpear, pasoCiudades, resumenHangar, capitalDe, serializar, deserializar, hangarLibre,
+    iaCrear, iaDecidir, estadoMayor, ordenar, partida, tomadas, avanzar, hash, mulberry, indexar, vision, calcularSuministro, golpear, pasoCiudades, resumenHangar, capitalDe, serializar, deserializar, hangarLibre,
   };
 })();
 if (typeof module !== 'undefined') module.exports = DOCTRINA;

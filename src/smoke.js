@@ -10,6 +10,7 @@ const ok = (n, v, x = '') => { if (!v) fallos++; console.log((v ? 'ok    ' : 'FA
   await p.goto(url); await p.waitForTimeout(300);
   await p.click('#pegarMapa'); await p.fill('#jsonMapa', '{mal'); await p.click('#usarPegado'); await p.waitForTimeout(30);
   ok('JSON roto muestra error', (await p.textContent('#msgMapa')).length > 0);
+  await p.click('#rolInicio button:has-text("campaña")');
   await p.click('#empezar'); await p.waitForTimeout(300);
   const E = (f, a) => p.evaluate(f, a);
   // Despliegue: el reloj espera; se coloca tropa a mano y luego se empieza.
@@ -122,7 +123,7 @@ const ok = (n, v, x = '') => { if (!v) fallos++; console.log((v ? 'ok    ' : 'FA
   // Táctil
   const b2 = await chromium.launch(); const c = await b2.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   const t = await c.newPage(); const err2 = []; t.on('pageerror', e => err2.push(e.message));
-  await t.goto(url); await t.waitForTimeout(300); await t.tap('#empezar'); await t.waitForTimeout(400); await t.tap('#despAuto'); await t.tap('#despIniciar'); await t.waitForTimeout(200);
+  await t.goto(url); await t.waitForTimeout(300); await t.tap('#rolInicio button:has-text("campaña")'); await t.tap('#empezar'); await t.waitForTimeout(400); await t.tap('#despAuto'); await t.tap('#despIniciar'); await t.waitForTimeout(200);
   await t.evaluate(() => { const b = document.getElementById('pausa'); if (b.textContent === 'pausa') b.click(); });
   const s0 = await t.evaluate(() => { const g = window.doctrina.partida.st, u = g.urbes.find(c => c.dueno > 0 && !c.capital); window.doctrina.centrar(u.x, u.y); return window.doctrina.aPantalla(u.x, u.y); });
   await t.waitForTimeout(100); await t.touchscreen.tap(s0[0], s0[1]); await t.waitForTimeout(500);

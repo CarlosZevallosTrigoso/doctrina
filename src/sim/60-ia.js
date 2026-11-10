@@ -14,7 +14,7 @@
     if (v.t < ia.prox) return o;
     ia.prox = v.t + seg(12 + r() * 10);
     // Secciones del estado mayor activas (logística, defensa aérea y reconocimiento, fuegos, maniobra) y doctrina del bando.
-    const SEC = ia.sec, doc = v.doctrina, aud = p.audacia * DATOS.doctrina.audacia[doc.postura];
+    const SEC = ia.sec, doc = v.doctrina, aud = p.audacia * DATOS.doctrina.audacia[doc.postura] * (ia.rol === 'atacante' ? .7 : 1);   // el atacante corre contra el reloj: acepta menos ventaja
     const signo = v.s === 0 ? 1 : -1, C = DATOS.clases, b = v.base, e = v.baseEnemiga, cr = { v: v.creditos };
     const d = (q, w) => Math.hypot(q.x - w.x, q.y - w.y);
     const mias = v.ciudades.filter(c => c.dueno === signo), ajenas = v.ciudades.filter(c => c.dueno !== signo);
@@ -83,14 +83,19 @@
       // Solo objetivos donde la tropa no quedaría cercada, si los hay.
       const alcanzables = ajenas.filter(c => v.linea(c.x, c.y));
       // Con objetivos marcados por el mando, el estado mayor solo ataca esos.
-      const candidatas = ia.marcados ? ajenas.filter(c => doc.objetivos.includes(c.id)) : alcanzables.length ? alcanzables : ajenas;
+      // Defensor: solo recupera lo perdido, salvo que el atacante esté agotado; entonces pasa a la contraofensiva.
+      const contra = ia.rol === 'defensor' && v.agot[1 - v.s] >= DATOS.asalto.contraofensiva;
+      const libresDeElegir = alcanzables.length ? alcanzables : ajenas;
+      const candidatas = ia.marcados ? ajenas.filter(c => doc.objetivos.includes(c.id)) : ia.rol === 'defensor' && !contra ? ajenas.filter(c => c.orig === signo) : libresDeElegir;
       for (const c of candidatas) {
         const cerca = ref.reduce((a, q) => Math.min(a, d(c, q)), 1e9);
         const estima = (c.guar == null ? 14 : c.guar) + enemigosT.filter(u => d(u, c) < 200).reduce((a, u) => a + (u.fuerza || 6) * (C[u.c] ? C[u.c].peso || 1 : 1), 0);
-        const val = -cerca / 400 - estima / 6 + (c.capital ? 8 : 0) + r() * 2;
+        // Atacante: mantiene el eje; lo siguiente que ataca queda cerca de lo último que eligió.
+        const eje = ia.rol === 'atacante' && ia.eje ? -d(c, ia.eje) / 500 : 0;
+        const val = -cerca / 400 - estima / 6 + (c.capital ? 8 : 0) + eje + r() * 2;
         if (val > mv) { mv = val; m = c; }
       }
-      ia.objetivo = m ? m.id : null; ia.objT = v.t;
+      ia.objetivo = m ? m.id : null; ia.objT = v.t; if (m) ia.eje = { x: m.x, y: m.y };
     }
     const objetivo = ia.objetivo != null ? v.ciudades.find(c => c.id === ia.objetivo) : null;
     if (objetivo && SEC.man) {
@@ -107,7 +112,8 @@
         ia.objT = v.t;
       } else if (objetivo.batalla && disponibles.length) {
         // Si la batalla ya empezó, alimentarla con lo que esté libre.
-        const n = disponibles.sort((x, y) => d(x, objetivo) - d(y, objetivo)).slice(0, 3);
+        // El atacante no alimenta la batalla a cuentagotas: manda todo lo que tenga a mano.
+        const n = disponibles.sort((x, y) => d(x, objetivo) - d(y, objetivo)).slice(0, ia.rol === 'atacante' ? 12 : 3);
         o.push({ t: 'mision', tipo: 'asalto', x: objetivo.x, y: objetivo.y, ids: n.map(u => u.id) });
       } else {
         const lejos = disponibles.filter(u => d(u, base0) > 260 && !mias.some(c => (c.ocupada || c.batalla) && d(u, c) < 160));

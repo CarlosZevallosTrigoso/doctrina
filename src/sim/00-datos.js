@@ -43,6 +43,9 @@ const DOCTRINA = (() => {
     // Dar una orden lleva tiempo, más si la unidad está lejos de su red.
     orden: { enlace: 4, lejos: 12 },
     ingenieros: { radio: 60, ritmo: 3 },
+    // Modo ataque/defensa: un bando debe avanzar contra el reloj; el otro empieza con menos tropa, pero fortificado.
+    asalto: { dias: 5, meta: 3, obras: 600, aviacion: 1.34,
+      atacante: { inf: 18, bli: 8, art: 4, aam: 2 }, defensor: { inf: 8, bli: 3, art: 2, aam: 2 }, contraofensiva: 0.6 },
     // Doctrina: decisiones generales de un bando. Cambiarla tarda en llegar a las unidades.
     doctrina: { demora: 20, audacia: { ofensiva: 0.8, equilibrada: 1, defensiva: 1.5 }, radarAmenaza: 520, radarSigue: 60,
       inicial: { postura: 'equilibrada', preservar: 0, emisiones: 'siempre', artilleria: 'libre', riesgo: 'asumir', ciudades: true, objetivos: [], nivel: 'manual' } },

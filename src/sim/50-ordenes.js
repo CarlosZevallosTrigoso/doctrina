@@ -21,6 +21,8 @@
     if (dueno(st, k) !== signoDe(s) && Math.hypot(x - b.x, y - b.y) > 192) return 'territorio ajeno';
     if (st.defensas.filter(q => q.s === s).length >= D.tope) return `tope de ${D.tope}`;
     if (st.defensas.some(q => Math.hypot(q.x - x, q.y - y) < D.separacion)) return 'muy cerca de otra';
+    // En el despliegue, el defensor paga con sus obras iniciales y construye al instante.
+    if (st.despliegue) return st.obras[s] >= ti.costo ? '' : st.obras[s] > 0 ? `faltan ${Math.ceil(ti.costo - st.obras[s])} de obras` : 'solo el defensor fortifica antes de la guerra';
     if (!(s === 0 && st.god) && st.creditos[s] < ti.costo) return `faltan ${Math.ceil(ti.costo - st.creditos[s])}`;
     return '';
   }
@@ -93,6 +95,7 @@
       if (!Number.isFinite(o.x) || !Number.isFinite(o.y)) return false;
       const x = clamp(o.x, 0, st.W), y = clamp(o.y, 0, st.H), ti = DATOS.instalaciones.tipos[o.d];
       if (puedeConstruir(st, s, o.d, x, y)) return false;
+      if (st.despliegue) { st.obras[s] -= ti.costo; nuevaInstalacion(st, s, o.d, x, y, 0, 0, 0); return true; }
       const paga = s === 0 && st.god ? 0 : ti.costo;
       st.creditos[s] -= paga;
       nuevaInstalacion(st, s, o.d, x, y, st.t + seg(ti.obra), o.m | 0, paga);
@@ -133,8 +136,13 @@
       if (L.length) { indexar(st); vision(st); }
       return L.length > 0;
     }
-    if (o.t === 'desplegarAuto') { if (!st.despliegue) return false; repartir(st, s); indexar(st); vision(st); return true; }
-    if (o.t === 'iniciar') { if (!st.despliegue) return false; st.despliegue = false; indexar(st); calcularSuministro(st); vision(st); return true; }
+    if (o.t === 'desplegarAuto') { if (!st.despliegue) return false; repartir(st, s); fortificarAuto(st, s); indexar(st); vision(st); return true; }
+    if (o.t === 'iniciar') {
+      if (!st.despliegue) return false; st.despliegue = false;
+      // El defensor tuvo tiempo de prepararse: su tropa empieza atrincherada.
+      if (st.modo) for (const u of st.unidades) if (!u.aire && u.s !== st.modo.atacante) u.fort = 1;
+      indexar(st); calcularSuministro(st); vision(st); return true;
+    }
     // Encender o apagar un radar propio: encendido ve lejos y se delata; apagado no ve ni lo oyen.
     // Doctrina general del bando: se aplica con demora. Los objetivos marcados y el nivel valen al instante.
     if (o.t === 'doctrina') {

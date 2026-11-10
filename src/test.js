@@ -392,6 +392,53 @@ t('guardar conserva doctrina, objetivos y nivel', () => {
   const b = S.deserializar(S.serializar(st)); assert.deepStrictEqual(b.doctrina[0], st.doctrina[0]);
 });
 
+/* ---------- Modo ataque/defensa ---------- */
+const modo = (atacante, extra = {}) => S.crear({ seed: 3, mapa: M, modo: { atacante }, ...extra });
+t('ataque/defensa: el atacante empieza con más tropa y aviación; el defensor, fortificado', () => {
+  const st = modo(0), A = D.asalto;
+  assert.strictEqual(de(st, 0, S.INF).length, A.atacante.inf); assert.strictEqual(de(st, 1, S.INF).length, A.defensor.inf);
+  assert(pista(st, 0).hangar.length > pista(st, 1).hangar.length);
+  const extra = s => st.defensas.filter(d => d.s === s).length; assert(extra(1) > extra(0) + 3, 'el defensor no fortificó'); assert(st.obras[1] < A.obras);
+  assert(de(st, 0, S.INF).every(u => st.urbes.filter(c => c.dueno > 0 && !c.capital).some(c => Math.hypot(c.x - u.x, c.y - u.y) < 80)));
+  const ejes = new Set(de(st, 0, S.INF).map(u => st.urbes.filter(c => c.dueno > 0).sort((a, b) => Math.hypot(a.x - u.x, a.y - u.y) - Math.hypot(b.x - u.x, b.y - u.y))[0].id)); assert(ejes.size <= 2, 'el atacante no se concentró');
+});
+t('ataque/defensa: tener las ciudades objetivo da la victoria al atacante; recuperar una la descuenta', () => {
+  const st = modo(0); sinFuerzas(st); const suyas = st.urbes.filter(u => u.dueno < 0 && !u.capital).slice(0, D.asalto.meta);
+  const toma = (u, signo) => { u.dueno = signo; u.ocupada = null; u.guar = 30; u.barrios.forEach(b => { b.dueno = signo; }); };
+  suyas.slice(1).forEach(u => toma(u, 1)); correr(st, 2); assert(!st.fin); assert.strictEqual(S.tomadas(st), D.asalto.meta - 1);
+  toma(suyas[0], 1); toma(suyas[1], -1); correr(st, 2); assert(!st.fin, 'no descontó la recuperada');
+  toma(suyas[1], 1); correr(st, 2); assert(st.fin && st.fin.causa === 'objetivos' && st.fin.ganador === 0, JSON.stringify(st.fin));
+});
+t('ataque/defensa: si llega el plazo, gana el defensor; no rige la regla de dos tercios', () => {
+  const st = modo(1); sinFuerzas(st); st.t = st.modo.plazo - 60; correr(st, 3);
+  assert(st.fin && st.fin.causa === 'plazo' && st.fin.ganador === 0, JSON.stringify(st.fin));
+  assert.strictEqual(st.modo.plazo, 30 * (D.asalto.dias * 1440 - D.reloj.inicio));
+});
+t('ataque/defensa: en el despliegue el defensor construye al instante con sus obras; el atacante no', () => {
+  const g = S.partida({ seed: 3, mapa: M, manual: true, rol: 'defensor' }), st = g.st, b = st.bases[0], n = st.defensas.length;
+  assert.strictEqual(st.obras[0], D.asalto.obras);
+  assert(S.aplicar(st, 0, { t: 'construir', d: S.FORTIN, x: b.x + 150, y: b.y - 40 })); const f = st.defensas[st.defensas.length - 1];
+  assert.strictEqual(st.defensas.length, n + 1); assert.strictEqual(f.listo, 0); assert.strictEqual(st.obras[0], D.asalto.obras - D.instalaciones.tipos[S.FORTIN].costo);
+  const c0 = st.creditos[0]; assert.strictEqual(st.creditos[0], c0);
+  S.aplicar(st, 0, { t: 'iniciar' }); assert(de(st, 0, S.INF).every(u => u.fort === 1), 'no empezó atrincherada');
+  const a = S.partida({ seed: 3, mapa: M, manual: true, rol: 'atacante' }).st; assert.strictEqual(S.aplicar(a, 0, { t: 'construir', d: S.FORTIN, x: a.bases[0].x + 150, y: a.bases[0].y - 40 }), false);
+  S.aplicar(a, 0, { t: 'iniciar' }); assert(de(a, 0, S.INF).every(u => u.fort === 0));
+});
+t('ataque/defensa: la IA defensora no lanza ofensivas, solo recupera lo perdido', () => {
+  const g = S.partida({ seed: 8, mapa: M, ia0: 'equilibrada', ia1: 'equilibrada', rol: 'atacante' }), st = g.st;
+  assert.strictEqual(g.ias[1].rol, 'defensor'); assert.strictEqual(st.doctrina[1].postura, 'defensiva');
+  const propias = new Set(st.urbes.filter(u => u.orig < 0).map(u => u.id)), vistas = new Set(); let n = 0;
+  for (let i = 0; i < seg(3000) && !st.fin; i++) {
+    S.avanzar(g);
+    // Mientras el atacante no esté agotado (ahí sí vale la contraofensiva), el defensor solo ataca ciudades que fueron suyas.
+    for (const m of st.misiones) if (m.s === 1 && m.tipo === 'asalto' && !vistas.has(m.id)) { vistas.add(m.id); if (st.agot[0] < D.asalto.contraofensiva - .1) { n++; assert(st.urbes.some(u => propias.has(u.id) && Math.hypot(u.x - m.x, u.y - m.y) < 5), 'el defensor atacó una ciudad que nunca fue suya'); } }
+  }
+  void n;
+});
+t('ataque/defensa: guardar conserva el modo, el plazo y las obras', () => {
+  const st = modo(0); correr(st, 5); const b = S.deserializar(S.serializar(st)); assert.deepStrictEqual(b.modo, st.modo); assert.deepStrictEqual(b.obras, st.obras);
+});
+
 t('las ciudades pagan créditos con el tiempo', () => {
   const st = nuevo(); sinFuerzas(st); const c0 = st.creditos[0]; correr(st, 60); assert(st.creditos[0] > c0 + 20);
 });
