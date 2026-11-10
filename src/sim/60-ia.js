@@ -14,7 +14,7 @@
     if (v.t < ia.prox) return o;
     ia.prox = v.t + seg(12 + r() * 10);
     // Secciones del estado mayor activas (logística, defensa aérea y reconocimiento, fuegos, maniobra) y doctrina del bando.
-    const SEC = ia.sec, doc = v.doctrina, aud = p.audacia * DATOS.doctrina.audacia[doc.postura] * (ia.rol === 'atacante' ? .7 : 1);   // el atacante corre contra el reloj: acepta menos ventaja
+    const SEC = ia.sec, doc = v.doctrina, aud = (ia.rol === 'atacante' ? Math.min(p.audacia, 1.8) * .7 : p.audacia) * DATOS.doctrina.audacia[doc.postura];   // el atacante corre contra el reloj: acepta menos ventaja
     const signo = v.s === 0 ? 1 : -1, C = DATOS.clases, b = v.base, e = v.baseEnemiga, cr = { v: v.creditos };
     const d = (q, w) => Math.hypot(q.x - w.x, q.y - w.y);
     const mias = v.ciudades.filter(c => c.dueno === signo), ajenas = v.ciudades.filter(c => c.dueno !== signo);
@@ -61,6 +61,8 @@
     const noMias = v.ciudades.filter(c => c.dueno !== signo);
     const comprometida = u => noMias.some(c => d(u, c) <= DATOS.ciudad.rZona + 30) || enemigosT.some(w => d(u, w) < 140);
     const ocupadas = new Set(), libres = tierra.filter(u => u.st === DESPLEGADA && (u.c !== INF || u.camion) && !v.misiones.some(m => m.id === u.m && m.estado !== 'fin' && m.tipo !== 'refuerzo') && !comprometida(u));
+    // El defensor no desguarnece una posición atrincherada para tapar otra: deja al menos dos unidades en cada ciudad.
+    const fija = u => ia.rol === 'defensor' && u.fort >= 1 && mias.some(c => d(u, c) <= DATOS.ciudad.rZona && tierra.filter(w => d(w, c) <= DATOS.ciudad.rZona).length <= 2);
     const tomar = (c, n) => libres.filter(u => !ocupadas.has(u.id)).sort((x, y) => d(x, c) - d(y, c)).slice(0, n);
     const fuerzaCerca = (c, R) => tierra.filter(u => d(u, c) <= R).reduce((a, u) => a + u.fuerza * C[u.c].peso, 0);
     // Socorrer solo lo que esté en desventaja y no tenga ya refuerzos en camino.
@@ -68,7 +70,7 @@
     const amenazaDe = c => enemigosT.filter(u => d(u, c) < 300).reduce((a, u) => a + (u.fuerza || 6) * (C[u.c] ? C[u.c].peso || 1 : 1), 0);
     const amenazadas = mias.filter(c => { const a = amenazaDe(c); return (c.batalla || a > 0) && fuerzaCerca(c, 200) + (c.guar || 0) + enCamino(c) < a * 1.3 + 8; }).sort((x, y) => (y.capital - x.capital) || (amenazaDe(y) - amenazaDe(x)));
     for (const c of SEC.log ? amenazadas.slice(0, 1) : []) {
-      const n = tomar(c, 3).filter(u => d(u, c) > DATOS.ciudad.rZona);
+      const n = tomar(c, 3).filter(u => d(u, c) > DATOS.ciudad.rZona && !fija(u));
       if (n.length) { n.forEach(u => ocupadas.add(u.id)); o.push({ t: 'mision', tipo: 'refuerzo', x: c.x, y: c.y, ids: n.map(u => u.id) }); }
     }
     for (const c of SEC.log ? mias.filter(q => q.ocupada && fuerzaCerca(q, 140) < 8).slice(0, 2) : []) {
@@ -77,7 +79,10 @@
     }
     // Objetivo: la ciudad ajena más accesible, ponderando lo que se sabe de ella.
     const fijo = ia.objetivo != null ? v.ciudades.find(c => c.id === ia.objetivo) : null;
-    if (!fijo || fijo.dueno === signo || v.t - ia.objT > seg(2400) || (ia.marcados && !doc.objetivos.includes(fijo.id))) {
+    // El atacante no insiste indefinidamente: si un objetivo no cae en veinte minutos, lo anota como fracaso y reconsidera.
+    const vence = 2400;
+    if (fijo && fijo.dueno !== signo && v.t - ia.objT > seg(vence) && ia.rol === 'atacante') { ia.fallos = ia.fallos || {}; ia.fallos[fijo.id] = (ia.fallos[fijo.id] || 0) + 1; }
+    if (!fijo || fijo.dueno === signo || v.t - ia.objT > seg(vence) || (ia.marcados && !doc.objetivos.includes(fijo.id))) {
       let m = null, mv = -Infinity;
       const ref = mias.length ? mias : [{ x: b.x, y: b.y }];
       // Solo objetivos donde la tropa no quedaría cercada, si los hay.
@@ -92,7 +97,7 @@
         const estima = (c.guar == null ? 14 : c.guar) + enemigosT.filter(u => d(u, c) < 200).reduce((a, u) => a + (u.fuerza || 6) * (C[u.c] ? C[u.c].peso || 1 : 1), 0);
         // Atacante: mantiene el eje; lo siguiente que ataca queda cerca de lo último que eligió.
         const eje = ia.rol === 'atacante' && ia.eje ? -d(c, ia.eje) / 500 : 0;
-        const val = -cerca / 400 - estima / 6 + (c.capital ? 8 : 0) + eje + r() * 2;
+        const val = -cerca / 400 - estima / 6 + (c.capital ? 8 : 0) + eje - 3 * ((ia.fallos && ia.fallos[c.id]) || 0) + r() * 2;
         if (val > mv) { mv = val; m = c; }
       }
       ia.objetivo = m ? m.id : null; ia.objT = v.t; if (m) ia.eje = { x: m.x, y: m.y };
@@ -133,6 +138,7 @@
         const aaCerca = objetivo ? v.defensasE.find(q => q.t === AA && d(q, objetivo) < 500) : null;
         const columna = enemigosT.filter(u => u.st === MARCHA).sort((x, y) => d(x, b) - d(y, b))[0];
         if (aaCerca && h(ATAQUE) >= 2) mis('supresion', aaCerca.x, aaCerca.y, { [ATAQUE]: 2, ...(h(CAZA) >= 2 ? { [CAZA]: 1 } : {}) });
+        else if (ia.rol === 'atacante' && objetivo && objetivo.dueno && doc.ciudades && !cubierto(objetivo) && h(ATAQUE) >= 2 && (objetivo.guar == null || objetivo.guar > 8)) mis('bombardeo', objetivo.x, objetivo.y, { [ATAQUE]: Math.min(5, h(ATAQUE)), ...(h(CAZA) >= 2 ? { [CAZA]: 2 } : {}) });   // el atacante ablanda primero su objetivo
         else if (columna && !cubierto(columna) && h(ATAQUE) >= 1 && r() < .7) mis('golpe', columna.x, columna.y, { [ATAQUE]: Math.min(2, h(ATAQUE)) });
         else if (objetivo && doc.ciudades && !cubierto(objetivo) && objetivo.dueno && h(ATAQUE) >= 3 && (objetivo.guar == null || objetivo.guar > 8)) mis('bombardeo', objetivo.x, objetivo.y, { [ATAQUE]: Math.min(4, h(ATAQUE) - 1), ...(h(CAZA) >= 2 ? { [CAZA]: 2 } : {}) });
         else if (h(MISIL) >= 2) { const q = v.defensasE.filter(w => w.t === PISTA || w.t === AA || w.t === RADAR).sort((x, y) => d(x, b) - d(y, b))[0]; if (q) mis('golpe', q.x, q.y, { [MISIL]: q.t === PISTA ? 3 : 2 }); }

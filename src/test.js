@@ -435,6 +435,17 @@ t('ataque/defensa: la IA defensora no lanza ofensivas, solo recupera lo perdido'
   }
   void n;
 });
+t('sitio: con tropa enemiga desplegada cerca, la guarnición de la ciudad no se repone', () => {
+  const caso = sitiada => { const st = limpio(), c = ciudad(st, -1); c.guar = 5; if (sitiada) pon(st, 0, S.INF, c.x + D.ciudad.rZona + 60, c.y, { cd: 1e9 }); correr(st, 20); return c.guar; };
+  assert(caso(false) > 5.5, 'libre no repone'); assert(caso(true) <= 5.01, 'sitiada repone');
+});
+t('artillería: sin blancos a la vista, bate la guarnición de la ciudad que su bando asalta', () => {
+  const st = limpio(), c = ciudad(st, -1); c.guar = 20;
+  for (let i = 0; i < 3; i++) pon(st, 0, S.INF, c.x + 20 * i, c.y + 10);
+  correr(st, 3); assert(c.batalla, 'no hay batalla'); const sin = (() => { const g0 = c.guar; correr(st, 20); return g0 - c.guar; })();
+  const a = pon(st, 0, S.ART, c.x + 300, c.y); const con = (() => { const g0 = c.guar; correr(st, 20); return g0 - c.guar; })();
+  assert(a.mun < 1, 'no disparó'); assert(con > sin + .5, `sin ${sin} con ${con}`);
+});
 t('ataque/defensa: guardar conserva el modo, el plazo y las obras', () => {
   const st = modo(0); correr(st, 5); const b = S.deserializar(S.serializar(st)); assert.deepStrictEqual(b.modo, st.modo); assert.deepStrictEqual(b.obras, st.obras);
 });

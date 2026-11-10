@@ -32,7 +32,8 @@ const DOCTRINA = (() => {
       // Antiaérea móvil: viaja con la columna y, emplazada, dispara a lo que vuela cerca.
       { cruce: 150, fuerza: 5, vis: 150, idr: 110, rango: 150, directo: 40, cd: 5, costo: 150, obra: 180, peso: 0.5, pk: { 2: 0.25, 3: 0.35, 4: 0.5, 5: 0.3 } },
     ],
-    artilleria: { delata: 25, guarnicion: 0.5 },
+    artilleria: { delata: 25, guarnicion: 0.5, ciudad: 0.6, dano: 0.004 },
+    sitio: 260,   // una ciudad con tropa enemiga desplegada así de cerca está sitiada: su guarnición no se repone
     // Abastos: cada unidad carga munición y combustible; los gasta al pelear y al moverse y los repone dentro de la red.
     abastos: { tiro: { 0: 0.02, 1: 0.02, 7: 0.04, 8: 0.06 }, batalla: 0.0025, autonomia: 3200, sinMunicion: 0.3,
       repone: { mun: 0.02, comb: 0.03, estirado: 0.075 }, costo: { mun: 1, comb: 0.5, fuerza: 0.1 },

@@ -269,6 +269,16 @@
         if (t.urbe >= 0) { const c = st.urbes[t.urbe]; if (c.batalla && ladoDe(c.dueno) === e) retirarDeGuarnicion(c, DATOS.artilleria.guarnicion); }
         return;
       }
+      // Sin blancos a la vista: prepara el asalto batiendo la guarnición de la ciudad enemiga donde su bando ya pelea.
+      if (roe === 'libre') {
+        const c = st.urbes.find(q => q.batalla && q.dueno === signoDe(e) && Math.hypot(q.x - u.x, q.y - u.y) <= cl.rango && q.guar > 0);
+        if (c) {
+          u.cd = cl.cd * (.85 + azar(st) * .3); u.idt = true; u.oculto = false; u.delata = st.t + seg(DATOS.artilleria.delata); u.mun = Math.max(0, u.mun - DATOS.abastos.tiro[ART]);
+          st.ev.push({ k: 'tiro', x: u.x, y: u.y, x2: c.x + (azar(st) - .5) * 30, y2: c.y + (azar(st) - .5) * 30, c: u.c, s: u.s, t: st.t });
+          retirarDeGuarnicion(c, DATOS.artilleria.ciudad); c.dano = Math.min(1, c.dano + DATOS.artilleria.dano);
+          return;
+        }
+      }
     }
     if (u.c === AAM && u.st === DESPLEGADA && u.cd <= 0 && u.mun > 0) {
       const t = masCercano(st, e, 0, u.x, u.y, cl.rango, w => w.c !== MISIL);
@@ -427,7 +437,9 @@
         const s = ladoDe(u.dueno), sum = conSuministro(st, s, u.x, u.y);
         if (sum && !u.batalla) {
           const tope = u.ocupada ? C.ocupada : u.capital ? C.guarnicion * 2 : C.guarnicion;
-          u.guar = Math.min(tope, u.guar + C.regenera); u.moral = Math.min(1 - DATOS.agotamiento.moral * Math.min(1, st.agot[s]), u.moral + .002); u.dano = Math.max(0, u.dano - C.repara);
+          // Sitiada: con tropa enemiga desplegada cerca, la guarnición no se repone.
+          const sitiada = st.porLado[1 - s][1].some(w => !w.dead && !w.rota && w.st === DESPLEGADA && Math.hypot(w.x - u.x, w.y - u.y) <= DATOS.sitio);
+          if (!sitiada) u.guar = Math.min(tope, u.guar + C.regenera); u.moral = Math.min(1 - DATOS.agotamiento.moral * Math.min(1, st.agot[s]), u.moral + .002); u.dano = Math.max(0, u.dano - C.repara);
         } else if (!sum) { u.guar = Math.max(0, u.guar - .02); u.moral = Math.max(.1, u.moral - .002); }
         // Cercada: avisa, y si el enemigo ya la abastece y nadie rompe el cerco, capitula.
         // Recién tomada: el territorio de alrededor aún no cambió de manos; no cuenta como cerco.
