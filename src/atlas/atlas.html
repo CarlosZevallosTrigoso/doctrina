@@ -1,0 +1,104 @@
+<title>doctrina atlas</title>
+<style>
+/* Mesa cartográfica en negro: el mapa ocupa todo y los instrumentos van al costado. El mapa vive en grises; el color es de las unidades. */
+:root {
+  --negro: #000000; --hueso: #ece7db; --gris: #8d8c85; --tenue: #55544f; --linea: #2b2a27; --panel: #0a0a09;
+  --t-rio: #9b9a92; --t-costa: #76756e; --t-camino: #84837b; --t-frontera: #d6d2c6; --contacto: #9c9b94;
+  --avion: #56b4e9; --dron: #f0e442; --misil: #ff6a13; --personal: #ece7db; --vehiculo: #cc79a7;
+  --mono: "Fira Code", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --fs-0: 11px; --fs-1: 12px; --fs-2: 15px;
+  color-scheme: dark;
+}
+html, body { height: 100%; background: var(--negro); overflow: hidden; }
+body { color: var(--hueso); font: var(--fs-1)/1.45 var(--mono); -webkit-font-smoothing: antialiased; }
+#app { position: fixed; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr) 216px; }
+#mesa { position: relative; min-width: 0; min-height: 0; }
+#lienzo.mover { cursor: grab; }
+#lienzo { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; background: var(--negro); }
+aside { border-left: 1px solid var(--linea); background: var(--panel); overflow-y: auto; display: grid; align-content: start; gap: 14px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) calc(12px + env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) 12px; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; border-radius: 2px; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
+#titulo { justify-self: start; font-size: var(--fs-2); font-weight: 600; letter-spacing: .04em; }
+#nombre { width: 100%; background: none; border: 0; border-bottom: 1px solid var(--linea); color: var(--hueso); font: inherit; padding: 2px 0; border-radius: 0; }
+.bloque { display: grid; gap: 3px; min-width: 0; }
+.rotulo { color: var(--tenue); font-size: var(--fs-0); letter-spacing: .1em; text-transform: uppercase; }
+#valida { margin: 0; padding: 0; list-style: none; display: grid; gap: 1px; color: var(--gris); font-size: var(--fs-0); font-variant-numeric: tabular-nums; }
+#valida .falta { color: var(--hueso); }
+#valida .falta::before { content: "! "; }
+.herr { display: grid; grid-template-columns: 30px 1fr 1.5ch; align-items: center; gap: 8px; width: 100%; padding: 3px 5px; color: var(--gris); text-align: left; }
+.herr svg { display: block; }
+.herr kbd { font: inherit; color: var(--tenue); text-align: right; }
+.herr:hover { color: var(--hueso); }
+.herr[aria-checked="true"] { color: var(--negro); background: var(--hueso); }
+.herr[aria-checked="true"] kbd { color: var(--negro); }
+.herr[aria-checked="true"] svg * { fill: var(--negro); stroke-opacity: 1; }
+.fila { display: flex; flex-wrap: wrap; gap: 4px; }
+.fila button { padding: 3px 8px; border: 1px solid var(--linea); color: var(--gris); }
+.fila button:hover { color: var(--hueso); border-color: var(--tenue); }
+.fila button[aria-pressed="true"], .fila button[aria-checked="true"] { color: var(--negro); background: var(--hueso); border-color: var(--hueso); }
+.fila button:disabled { opacity: .4; cursor: default; }
+#hojaJson { position: fixed; inset: 0; display: grid; place-items: center; padding-block: 16px; padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px)); background: rgba(0, 0, 0, .6); }
+#hojaJson > div { background: var(--panel); border: 1px solid var(--linea); border-radius: 2px; padding: 16px; width: min(64ch, 100%); max-height: calc(100vh - 32px); overflow: auto; display: grid; gap: 10px; }
+#hojaJson h2 { margin: 0; font-size: var(--fs-2); font-weight: 600; }
+#hojaJson p { margin: 0; color: var(--gris); }
+#json { width: 100%; min-height: 180px; resize: vertical; background: var(--negro); color: var(--hueso); border: 1px solid var(--linea); border-radius: 2px; font: var(--fs-0)/1.4 var(--mono); padding: 8px; }
+#msgJson { min-height: 1.45em; color: var(--hueso); font-size: var(--fs-0); }
+@media (orientation: portrait), (max-width: 620px) {
+  #app { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 36%); }
+  aside { border-left: 0; border-top: 1px solid var(--linea); grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); padding-left: max(12px, env(safe-area-inset-left, 0px)); }
+}
+@media (pointer: coarse) { .herr { padding-block: 7px; } .fila button { padding: 7px 10px; } }
+</style>
+
+<div id="app">
+  <div id="mesa"><canvas id="lienzo" aria-label="Mapa editable. Pinta áreas y dibuja líneas arrastrando sobre él."></canvas></div>
+  <aside aria-label="Instrumentos">
+    <div class="bloque">
+      <button id="titulo" type="button" title="Recargar la página">atlas</button>
+      <input id="nombre" type="text" maxlength="80" aria-label="Nombre del mapa" autocomplete="off">
+    </div>
+    <div class="bloque"><span class="rotulo">estado</span><ul id="valida" aria-live="polite"></ul></div>
+    <div class="bloque" role="radiogroup" aria-label="Áreas"><span class="rotulo">áreas</span><div id="herrAreas" class="bloque"></div></div>
+    <div class="bloque" role="radiogroup" aria-label="Líneas"><span class="rotulo">líneas</span><div id="herrLineas" class="bloque"></div></div>
+    <div class="bloque">
+      <span class="rotulo">pincel</span>
+      <div class="fila" role="radiogroup" aria-label="Tamaño del pincel">
+        <button type="button" role="radio" data-p="0" title="[ achica">chico</button>
+        <button type="button" role="radio" data-p="1">medio</button>
+        <button type="button" role="radio" data-p="2" title="] agranda">grande</button>
+      </div>
+    </div>
+    <div class="bloque">
+      <span class="rotulo">vista y mapa</span>
+      <div class="fila">
+        <button id="zMenos" type="button" title="Alejar (−). La rueda también acerca y aleja." aria-label="Alejar">−</button>
+        <button id="zMas" type="button" title="Acercar (+). Muévete con las flechas, el botón central o Espacio+arrastrar." aria-label="Acercar">+</button>
+        <button id="simetria" type="button" aria-pressed="true" title="Lo que dibujas se refleja en el lado opuesto (S)">reflejo</button>
+        <button id="juego" type="button" aria-pressed="true" title="Muestra dueños, bases y unidades de ejemplo (J)">capa de juego</button>
+        <button id="deshacer" type="button" title="Ctrl/Cmd + Z">deshacer</button>
+        <button id="rehacer" type="button" title="Ctrl/Cmd + Shift + Z">rehacer</button>
+        <button id="ejemplo" type="button">ejemplo</button>
+        <button id="limpiar" type="button">limpiar</button>
+        <button id="abrirJson" type="button">guardar / cargar</button>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<section id="hojaJson" hidden>
+  <div role="dialog" aria-modal="true" aria-labelledby="tituloJson">
+    <h2 id="tituloJson">Guardar o cargar un mapa</h2>
+    <p>Este texto es tu mapa completo. Cópialo para guardarlo, o pega aquí otro y cárgalo.</p>
+    <textarea id="json" spellcheck="false" aria-label="Mapa en formato JSON"></textarea>
+    <div id="msgJson" role="status"></div>
+    <div class="fila">
+      <button id="copiar" type="button">copiar</button>
+      <button id="cargar" type="button">cargar este texto</button>
+      <button id="elegirArchivo" type="button">abrir archivo</button>
+      <button id="bajar" type="button" hidden>descargar</button>
+      <button id="cerrarJson" type="button">cerrar</button>
+      <input id="archivo" type="file" accept=".json,application/json" hidden>
+    </div>
+  </div>
+</section>

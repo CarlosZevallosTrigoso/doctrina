@@ -1,0 +1,354 @@
+<title>doctrina</title>
+<style>
+/* Consola de teatro: negro total. El color nombra la clase, el relleno el bando, el gris el dueño del terreno. */
+:root {
+  --negro: #000000; --hueso: #ece7db; --gris: #8d8c85; --tenue: #55544f; --linea: #2b2a27; --panel: #0b0b0a; --contacto: #9c9b94;
+  --t-rio: #6f6e68; --t-costa: #55544f; --t-camino: #5f5e58; --t-frontera: #9a988f;
+  --avion: #56b4e9; --dron: #f0e442; --misil: #ff6a13; --personal: #ece7db; --vehiculo: #cc79a7; --espia: #2fc79f; --ataque: #8f97ff; --artilleria: #d98e4a; --aamovil: #9fd36b;
+  --mono: "Fira Code", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --fs-0: 11px; --fs-1: 12px; --fs-2: 14px; --fs-3: 22px;
+  color-scheme: dark;
+}
+html, body { height: 100%; background: var(--negro); overflow: hidden; }
+body { color: var(--hueso); font: var(--fs-1)/1.5 var(--mono); -webkit-font-smoothing: antialiased; }
+canvas#mapa { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; background: var(--negro); }
+canvas#mapa.arrastrando { cursor: grabbing; }
+canvas#mapa.sobre-flecha { cursor: pointer; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; border-radius: 2px; }
+button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
+
+#cabecera { position: fixed; display: grid; gap: 2px; pointer-events: none;
+  top: calc(10px + env(safe-area-inset-top, 0px)); left: calc(12px + env(safe-area-inset-left, 0px)); }
+#titulo { pointer-events: auto; justify-self: start; font-size: var(--fs-2); font-weight: 600; letter-spacing: .04em; }
+#estado { color: var(--gris); font-size: var(--fs-0); font-variant-numeric: tabular-nums; }
+#panelMando { position: fixed; z-index: 6; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - 32px); overflow: auto; background: var(--panel); border: 1px solid var(--tenue); border-radius: 2px; padding: 14px 16px; display: grid; gap: 10px; }
+#panelMando[hidden] { display: none; }
+#panelMando h2 { margin: 0; font-size: var(--fs-2); font-weight: 600; }
+#panelMando .grupo { display: grid; gap: 3px; }
+#panelMando .grupo b { font-weight: 600; font-size: var(--fs-1); }
+#panelMando small, .nivel small { color: var(--gris); font-size: var(--fs-0); }
+.ops { display: flex; flex-wrap: wrap; gap: 4px; }
+.ops button { padding: 4px 10px; border: 1px solid var(--linea); color: var(--gris); background: var(--negro); }
+.ops button:hover { color: var(--hueso); border-color: var(--tenue); }
+.ops button[aria-pressed="true"] { color: var(--negro); background: var(--hueso); border-color: var(--hueso); }
+.ops button.llega { border-style: dashed; border-color: var(--hueso); color: var(--hueso); }
+#panelMando .pie { margin: 0; color: var(--gris); font-size: var(--fs-0); }
+#panelMando .sec { justify-self: end; padding: 6px 14px; border: 1px solid var(--linea); color: var(--gris); }
+.nivel { display: grid; gap: 4px; margin: 10px 0 2px; }
+.nivel span { color: var(--gris); font-size: var(--fs-0); letter-spacing: .12em; text-transform: uppercase; }
+.tactil .ops button { min-height: 44px; padding-inline: 14px; }
+#despliegue { position: fixed; z-index: 4; left: 50%; top: 40px; transform: translateX(-50%); width: min(60ch, calc(100vw - 24px)); background: rgba(0, 0, 0, .94); border: 1px solid var(--hueso); border-radius: 2px; padding: 8px 12px 10px; color: var(--hueso); font-size: var(--fs-1); }
+#despliegue .cab { color: var(--gris); font-size: var(--fs-0); letter-spacing: .12em; text-transform: uppercase; }
+#despliegue p { margin: 4px 0 8px; line-height: 1.45; }
+#despliegue .pie { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+#despliegue .sec { padding: 6px 14px; border: 1px solid var(--linea); color: var(--gris); }
+#plan .ptropa { color: var(--hueso); }
+#tuto { position: fixed; z-index: 4; left: 50%; top: 40px; transform: translateX(-50%); width: min(56ch, calc(100vw - 24px)); background: rgba(0, 0, 0, .94); border: 1px solid var(--hueso); border-radius: 2px; padding: 8px 12px 10px; color: var(--hueso); font-size: var(--fs-1); }
+#tuto .cab { color: var(--gris); font-size: var(--fs-0); letter-spacing: .12em; text-transform: uppercase; }
+#tuto p { margin: 4px 0 8px; line-height: 1.45; }
+#tuto .pie { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+#tuto .salir { color: var(--gris); font-size: var(--fs-0); text-decoration: underline; padding: 4px; }
+#tuto .salir:hover { color: var(--hueso); }
+.foco { outline: 2px solid var(--hueso); outline-offset: 2px; animation: foco 1s ease-in-out infinite alternate; }
+@keyframes foco { to { outline-offset: 5px; outline-color: transparent; } }
+@media (prefers-reduced-motion: reduce) { .foco { animation: none; } }
+.acciones.novato #tutorial { order: -1; }
+.acciones:not(.novato) #tutorial { color: var(--hueso); background: transparent; border: 1px solid var(--tenue); }
+#menu { position: fixed; left: 0; top: 0; z-index: 5; width: 250px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow-y: auto; background: var(--panel); border: 1px solid var(--tenue); border-radius: 2px; padding: 6px; display: grid; gap: 1px; font-variant-numeric: tabular-nums; }
+#menu .cab { display: grid; padding: 2px 4px 5px; }
+#menu .cab b { font-weight: 600; font-size: var(--fs-1); }
+#menu .cab span { color: var(--gris); font-size: var(--fs-0); }
+#menu p { margin: 0; padding: 4px; color: var(--gris); }
+#menu .cant { display: flex; align-items: center; gap: 4px; padding: 0 4px 5px; color: var(--gris); font-size: var(--fs-0); }
+#menu .cant span { flex: 1; }
+#menu .cant button { padding: 1px 6px; border: 1px solid var(--linea); color: var(--gris); font-size: var(--fs-0); }
+#menu .cant button[aria-pressed="true"] { color: var(--negro); background: var(--hueso); border-color: var(--hueso); }
+#menu .acc { padding: 5px 4px 1px; color: var(--tenue); font-size: var(--fs-0); letter-spacing: .08em; text-transform: uppercase; }
+#menu .op { display: grid; grid-template-columns: 8px minmax(0, 1fr) 3ch auto; align-items: center; gap: 8px; width: 100%; padding: 3px 4px; text-align: left; color: var(--hueso); }
+#menu .op i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+#menu .op b { font-weight: 400; text-align: right; color: var(--gris); }
+#menu .op em { font-style: normal; color: var(--gris); text-align: right; font-size: var(--fs-0); white-space: nowrap; }
+#menu .op:hover:not(:disabled), #menu .op:focus-visible { background: var(--hueso); color: var(--negro); outline: none; }
+#menu .op:hover:not(:disabled) b, #menu .op:hover:not(:disabled) em, #menu .op:focus-visible b, #menu .op:focus-visible em { color: var(--negro); }
+#menu .op:disabled { color: var(--tenue); cursor: default; }
+#menu .op.def i { border-radius: 0; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+#menu .op.ver { grid-template-columns: minmax(0, 1fr); color: var(--gris); border-bottom: 1px solid var(--linea); padding-bottom: 5px; margin-bottom: 2px; font-size: var(--fs-0); }
+#menu .op:disabled i { opacity: .4; }
+#marcador { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; color: var(--gris); font-size: var(--fs-0); font-variant-numeric: tabular-nums; pointer-events: none; white-space: nowrap; }
+#marcador .fila { display: flex; gap: 3px; }
+#marcador i { width: 9px; height: 9px; display: block; }
+#marcador .mia { background: var(--hueso); }
+#marcador .suya { border: 1.4px solid var(--hueso); }
+#marcador .libre { border: 1.4px solid var(--tenue); }
+#marcador .urge { color: var(--hueso); letter-spacing: .08em; text-transform: uppercase; }
+#sat { display: flex; flex-wrap: wrap; gap: 0 12px; color: var(--tenue); font-size: var(--fs-0); font-variant-numeric: tabular-nums; max-width: min(60ch, 56vw); }
+#sat .activo { color: var(--hueso); }
+#registro { display: grid; gap: 1px; font-size: var(--fs-0); color: var(--gris); font-variant-numeric: tabular-nums; max-width: min(46ch, 46vw); }
+#registro .grave { color: var(--hueso); }
+#registro .ir { pointer-events: auto; cursor: pointer; }
+#registro .ir:hover { text-decoration: underline; }
+#registro div:nth-last-child(n+4) { opacity: .55; }
+#aviso { color: var(--hueso); font-size: var(--fs-0); letter-spacing: .12em; text-transform: uppercase; min-height: 1.5em; }
+
+#mando { position: fixed; display: grid; gap: 8px; justify-items: end;
+  right: calc(12px + env(safe-area-inset-right, 0px)); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+/* La columna no debe tragarse los clics de sus huecos: solo sus paneles reciben el puntero. */
+#mando { pointer-events: none; }
+#mando > * { pointer-events: auto; }
+/* Lo que no se ve no debe bloquear: los huecos de la barra de botones y el texto suelto dejan pasar el puntero al mapa. */
+#mando > #ctrl, #mando > #moral, #mando > #creditos, #mando > #seleccion { pointer-events: none; }
+#ctrl > *, #seleccion > button { pointer-events: auto; }
+#registro > div { justify-self: start; }
+#moral.grave { color: var(--misil); }
+#creditos, #moral { color: var(--hueso); font-size: var(--fs-1); font-variant-numeric: tabular-nums; background: rgba(0, 0, 0, .88); padding: 1px 6px; border-radius: 2px; }
+#fuerzas { display: grid; gap: 0; background: rgba(0, 0, 0, .88); border-radius: 2px; padding: 3px 6px; min-width: 164px; font-variant-numeric: tabular-nums; }
+#fuerzas .f { display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: 8px; color: var(--gris); padding: 1px 0; }
+#fuerzas i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+#fuerzas b { font-weight: 400; color: var(--hueso); }
+#batallas { display: grid; gap: 1px; width: min(240px, 60vw); }
+#batallas .b { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 2px 6px; background: rgba(0, 0, 0, .72); text-align: left; color: var(--misil); font-size: var(--fs-0); }
+#batallas .b:hover { background: var(--hueso); color: var(--negro); }
+#batallas b { font-weight: 400; }
+#plan { position: fixed; z-index: 6; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(380px, calc(100vw - 24px)); max-height: calc(100vh - 32px); overflow: auto; background: var(--panel); border: 1px solid var(--tenue); border-radius: 2px; padding: 14px 16px; display: grid; gap: 8px; font-variant-numeric: tabular-nums; }
+#plan h2 { margin: 0; font-size: var(--fs-2); font-weight: 600; }
+#plan p { margin: 0; color: var(--gris); font-size: var(--fs-0); }
+#plan .pfila { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto 24px 3ch 24px; align-items: center; gap: 8px; }
+#plan .pfila i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+#plan .pfila small { color: var(--gris); font-size: var(--fs-0); }
+#plan .pfila b { font-weight: 400; text-align: center; }
+#plan .pfila button { border: 1px solid var(--linea); height: 22px; color: var(--hueso); }
+#plan .pfila button:disabled { color: var(--tenue); cursor: default; }
+#plan .peta { color: var(--hueso); font-size: var(--fs-1); }
+#plan .sec { padding: 6px 14px; border: 1px solid var(--linea); color: var(--gris); }
+#misiones { display: grid; gap: 1px; width: min(290px, 70vw); max-height: min(36vh, 200px); overflow: hidden; background: var(--negro); font-size: var(--fs-0); font-variant-numeric: tabular-nums; }
+#misiones .m { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto 5ch 2ch; align-items: center; gap: 8px; padding: 1px 6px; color: var(--hueso); }
+#misiones .m i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+#misiones .m span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#misiones .m .e { color: var(--gris); }
+#misiones .m b { font-weight: 400; text-align: right; }
+#misiones .m.fin { opacity: .55; }
+#misiones .m.mas { display: block; color: var(--gris); }
+#misiones .x { color: var(--gris); text-align: center; line-height: 1; }
+#misiones .x:hover { color: var(--negro); background: var(--hueso); }
+#seleccion { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 4px 8px; font-size: var(--fs-0); }
+#seleccion button { padding: 3px 8px; border: 1px solid var(--tenue); background: var(--negro); color: var(--hueso); }
+#ctrl { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; max-width: 500px; }
+#ctrl button { padding: 3px 8px; border: 1px solid var(--linea); color: var(--gris); background: var(--negro); min-width: 3ch; }
+#ctrl button:hover { color: var(--hueso); border-color: var(--tenue); }
+#ctrl button[aria-pressed="true"] { color: var(--negro); background: var(--hueso); border-color: var(--hueso); }
+#ctrl #sonido[aria-pressed="true"] { color: var(--gris); background: var(--negro); border-color: var(--linea); }
+#ctrl #sonido[aria-pressed="false"] { color: var(--tenue); text-decoration: line-through; }
+
+.hoja { position: fixed; inset: 0; display: grid; place-items: center; padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px; pointer-events: none; }
+.hoja > div { pointer-events: auto; background: var(--panel); border: 1px solid var(--linea); border-radius: 2px; padding: 18px 20px; width: min(58ch, 100%); max-height: calc(100vh - 32px); overflow: auto; display: grid; gap: 12px; }
+.hoja h1 { margin: 0; font-size: var(--fs-3); font-weight: 600; letter-spacing: .01em; text-wrap: balance; }
+.hoja p { margin: 0; color: var(--gris); }
+.hoja ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 5px; color: var(--hueso); }
+.hoja kbd { font: inherit; color: var(--dron); }
+.reglas summary { cursor: pointer; color: var(--gris); }
+.reglas ul { margin-top: 8px; }
+.leyenda { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--gris); font-size: var(--fs-0); }
+.leyenda span { display: inline-flex; align-items: center; gap: 6px; }
+.leyenda i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.leyenda i.tri { border-radius: 0; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.leyenda i.hueco { background: none; border: 1.2px solid var(--hueso); border-radius: 0; transform: rotate(45deg); }
+.leyenda i.gris { border-color: var(--contacto); display: grid; place-items: center; }
+.leyenda i.gris::after { content: ""; width: 2px; height: 2px; background: var(--contacto); }
+.mapa { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.mapa label { color: var(--gris); }
+.mapa select, .mapa textarea { font: inherit; color: var(--hueso); background: var(--negro); border: 1px solid var(--linea); border-radius: 2px; }
+.mapa select { padding: 3px 6px; }
+.mapa button, .mapa a { padding: 3px 8px; border: 1px solid var(--linea); color: var(--gris); text-decoration: none; border-radius: 2px; }
+.mapa button:hover, .mapa a:hover { color: var(--hueso); border-color: var(--tenue); }
+.pegado { flex-basis: 100%; display: grid; gap: 6px; justify-items: start; }
+.pegado textarea { width: 100%; min-height: 90px; padding: 6px; font-size: var(--fs-0); resize: vertical; }
+#msgMapa { flex-basis: 100%; min-height: 1.4em; color: var(--hueso); font-size: var(--fs-0); }
+.acciones { display: flex; gap: 8px; }
+.accion { padding: 6px 14px; color: var(--negro); background: var(--hueso); font-weight: 600; }
+.accion:hover { background: #fff; }
+.cifras { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-variant-numeric: tabular-nums; }
+.cifras div { display: grid; }
+.cifras small { color: var(--gris); font-size: var(--fs-0); }
+.cifras b { font-size: var(--fs-2); font-weight: 400; }
+
+#minimapa { position: fixed; display: grid; gap: 4px; width: min(204px, 36vw);
+  left: calc(12px + env(safe-area-inset-left, 0px)); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+#mini { display: block; width: 100%; aspect-ratio: 1664 / 1024; background: var(--negro); border: 1px solid var(--linea); border-radius: 2px; touch-action: none; cursor: pointer; }
+#vistas { display: flex; flex-wrap: wrap; gap: 4px; }
+#vistas button { padding: 3px 8px; border: 1px solid var(--linea); color: var(--gris); background: var(--negro); min-width: 3ch; }
+#vistas button:hover { color: var(--hueso); border-color: var(--tenue); }
+#vistas button[aria-pressed="true"] { color: var(--negro); background: var(--hueso); border-color: var(--hueso); }
+/* Modo táctil: todo más grande y el menú como columna lateral. El escritorio no cambia. */
+.tactil { --fs-0: 13px; --fs-1: 14.5px; --fs-2: 17px; }
+.tactil #ctrl { max-width: 640px; gap: 6px; }
+.tactil #ctrl button, .tactil #vistas button { min-height: 46px; min-width: 46px; padding: 8px 14px; }
+.tactil #reiniciar { margin-left: 18px; }
+.tactil #seleccion button { min-height: 44px; padding: 8px 16px; }
+.tactil #misiones .x { min-width: 40px; min-height: 36px; }
+.tactil #batallas .b { padding: 10px 10px; }
+.tactil #registro .ir { padding-block: 4px; }
+.tactil #menu { left: auto !important; right: 0; top: 0 !important; bottom: 0; width: min(360px, 46vw); max-width: none; max-height: none; border-width: 0 0 0 1px; }
+.tactil #menu.izq { right: auto; left: 0 !important; border-width: 0 1px 0 0; }
+.tactil #menu .op { padding: 13px 8px; }
+.tactil #plan { width: min(480px, calc(100vw - 24px)); }
+.tactil #plan .pfila { grid-template-columns: 8px minmax(0, 1fr) auto 46px 3ch 46px; gap: 10px; }
+.tactil #plan .pfila button { height: 44px; }
+.tactil #plan .sec, .tactil #lanzarPlan { min-height: 46px; padding-inline: 18px; }
+.tactil #tuto .accion, .tactil #tuto .salir, .tactil #despliegue button { min-height: 44px; padding-inline: 14px; }
+/* En un teléfono no cabe todo: el panel de fuerzas cede el sitio al mapa. */
+@media (max-width: 520px) { .tactil #fuerzas { display: none; } .tactil #ctrl button { min-height: 42px; padding: 6px 10px; } }
+@media (pointer: coarse) {
+  #menu .op { padding-block: 8px; }
+  #menu .cant button { padding: 6px 10px; }
+  #clases button { padding-block: 8px; }
+  #ctrl button, #vistas button { padding: 8px 10px; }
+  #misiones .x { padding: 6px 0; }
+}
+@media (max-width: 520px) {
+  #clases button { min-width: 142px; gap: 6px; }
+  body:not(.con-seleccion) #clases button kbd { visibility: hidden; }
+  #ctrl { max-width: 190px; }
+  #estado { max-width: 60vw; }
+  #cabecera { top: calc(30px + env(safe-area-inset-top, 0px)); }
+  #marcador { left: calc(12px + env(safe-area-inset-left, 0px)); transform: none; }
+}
+</style>
+
+<canvas id="mapa" aria-label="Mapa del teatro de operaciones. Tu base está abajo a la izquierda; la enemiga, arriba a la derecha."></canvas>
+
+<header id="cabecera">
+  <button id="titulo" type="button" title="Recargar la página">doctrina</button>
+  <div id="estado"></div>
+  <div id="sat" aria-label="Satélites"></div>
+  <div id="aviso" role="status"></div>
+  <div id="registro" role="log" aria-live="polite" aria-label="Registro de mensajes"></div>
+</header>
+
+<div id="marcador" role="status" aria-label="Ciudades"></div>
+
+<section id="panelMando" aria-label="Mando: automatización y doctrina" hidden></section>
+<aside id="despliegue" aria-label="Despliegue inicial" hidden><div class="cab">despliegue</div><p id="despTexto"></p><div class="pie"><button id="despAuto" type="button" class="sec">Despliegue automático</button><button id="despIniciar" type="button" class="accion">Empezar la guerra</button></div></aside>
+<aside id="tuto" role="status" aria-live="polite" aria-label="Tutorial" hidden></aside>
+<div id="menu" role="menu" aria-label="Acciones en este lugar" hidden></div>
+<section id="plan" role="dialog" aria-label="Planificar misión" hidden></section>
+
+<div id="minimapa">
+  <div id="vistas">
+    <button id="zMenos" type="button" title="Alejar (−)" aria-label="Alejar">−</button>
+    <button id="zMas" type="button" title="Acercar (+)" aria-label="Acercar">+</button>
+    <button id="irBase" type="button" title="Volver a tu base (B)">base</button>
+    <button id="caja" type="button" aria-pressed="false" title="Seleccionar con un recuadro (C o Shift+arrastrar)">recuadro</button>
+  </div>
+  <canvas id="mini" aria-label="Minimapa. Haz clic para ir a ese punto."></canvas>
+</div>
+
+<nav id="mando" aria-label="Mando">
+  <div id="batallas" aria-label="Batallas en curso" hidden></div>
+  <div id="misiones" aria-label="Órdenes en curso" hidden></div>
+  <div id="seleccion" hidden>
+    <span id="selN"></span>
+    <button id="soltarSel" type="button" title="Quitar la selección y volver a todas las opciones (Esc)">sin selección</button>
+  </div>
+  <div id="moral" role="status" aria-label="Moral de cada país" title="Baja con las bajas, las ciudades perdidas y el tiempo; sube al tomar ciudades. En cero, el país colapsa"></div>
+  <div id="creditos" role="status" aria-label="Créditos"></div>
+  <div id="fuerzas" aria-label="Fuerzas disponibles"></div>
+  <div id="ctrl">
+    <button id="pausa" type="button">pausa</button>
+    <button id="vel" type="button" title="Velocidad (V). Baja sola a ×1 cuando pasa algo importante">×1</button>
+    <button id="mandoBtn" type="button" title="Nivel de automatización y doctrina (D)">mando</button>
+    <button id="salto" type="button" aria-pressed="false" title="Avanza rápido hasta el próximo evento y pausa (N)">▸ evento</button>
+    <button id="todas" type="button" title="Selecciona todas tus tropas (T)">todas</button>
+    <button id="guardar" type="button" title="Guardar la partida">guardar</button>
+    <button id="sonido" type="button" aria-pressed="true" title="Sonido (M)">sonido</button>
+    <button id="ayuda" type="button" title="Cómo se juega (H)">?</button>
+    <button id="modo" type="button" title="Tamaño de la interfaz: auto sigue al dedo, al ratón o al lápiz">modo auto</button>
+    <button id="reiniciar" type="button">reiniciar</button>
+  </div>
+</nav>
+
+<section id="parte" class="hoja">
+  <div>
+    <h1>doctrina</h1>
+    <p>Eres el comandante del teatro de operaciones. Tu capital está abajo a la izquierda; la enemiga, arriba a la derecha. El enemigo ve lo mismo que tú: solo lo que alcanzan sus sensores.</p>
+    <ul>
+      <li><b>Objetivo:</b> toma la capital enemiga, mantén dos tercios de las ciudades durante 5 minutos, o agota su moral antes de que se agote la tuya.</li>
+      <li><b>Áreas de control:</b> haz clic en el mapa y designa un área. Cuando haya aire disponible, los cazas y el apoyo salen solos.</li>
+      <li><b>Misiones:</b> haz clic en un objetivo, elige Misión y arma el paquete: qué aparatos y qué tropas van. Llegan a la vez y luego recibes un parte.</li>
+      <li><b>Tropas:</b> un clic en una compañía la selecciona; otro clic en el mapa la mueve. La infantería siempre viaja en camión y al llegar desembarca.</li>
+      <li><kbd>Arrastra</kbd> para moverte, la rueda acerca y aleja, el minimapa te lleva a cualquier punto. <kbd>V</kbd> acelera, <kbd>Espacio</kbd> pausa.</li>
+    </ul>
+    <details class="reglas">
+      <summary>Todas las reglas</summary>
+      <ul>
+        <li><b>Batallas:</b> cada ciudad tiene barrios (los cuadritos). Una batalla los disputa uno a uno; cuando el atacante tiene la mayoría, la ciudad cae. Clic en una batalla de la lista te lleva allí.</li>
+        <li><b>Ocupación:</b> una ciudad tomada necesita guarnición. Si no, surge resistencia y puede sublevarse. Bombardearla ayuda a tomarla, pero luego produce menos y es más hostil.</li>
+        <li><b>Suministro:</b> viene de tu capital y tus depósitos por tu territorio. Lo que queda cortado rinde menos y se desgasta. El agua solo se cruza por puentes, que se pueden destruir.</li>
+        <li><b>Signos:</b> cuatro esquinas alrededor de una compañía, atrincherada; una cola, en marcha; anillo que parpadea, subiendo o bajando del camión. Un arco alrededor es la fuerza que le queda, rojo si es poca. La barra sobre una batalla es la balanza: la parte llena es tuya. La línea punteada clara marca tu abastecimiento pleno y la más tenue, hasta dónde una tropa no queda cercada. Las punteadas hacia un objetivo son misiones en curso.</li>
+        <li><b>Mando (D):</b> eliges cuánto decide tu estado mayor. <i>Baja</i>: lleva la logística. <i>Media</i>: además la defensa aérea y el reconocimiento. <i>Alta</i>: además los fuegos y los asaltos, sobre las ciudades que marques como objetivo. <i>Total</i>: lo decide todo. Una orden tuya directa manda sobre él diez minutos. Se cambia cuando quieras.</li>
+        <li><b>Doctrina:</b> seis decisiones que valen para todo tu bando: postura, preservar la fuerza, radares, artillería, riesgo aéreo y bombardeo de ciudades. Un cambio tarda 20 segundos en llegar a las unidades.</li>
+        <li><b>Escala y reloj:</b> una celda del mapa es 1 km y un segundo de juego es un minuto. La guerra empieza a las 06:00 del día 1. De 20:00 a 06:00 es de noche: la tropa y los drones ven menos y el satélite óptico no ve; cazas y aviones espía llevan radar y no lo notan. Una tormenta reduce la vista y deja a la aviación con la mitad de su efecto.</li>
+        <li><b>Artillería:</b> emplazada, bate a unos 26 km lo que tu bando ve, y es muy dañina contra columnas en marcha. De cerca casi no sirve. Al disparar se delata unos 25 segundos y la artillería enemiga le responde primero. En un asalto se queda a distancia de tiro.</li>
+        <li><b>Antiaérea móvil:</b> viaja con la columna y, emplazada, dispara a los aviones y drones cercanos. Es más débil que una antiaérea fija.</li>
+        <li><b>Quiebre:</b> una unidad que cae bajo el 35 % de su fuerza se quiebra (círculo hueco): deja de pelear, no obedece y se retira sola a una ciudad tuya. Allí, con suministro y sin enemigo cerca, se rehace hasta el 60 % y vuelve al servicio. La tropa sana también recupera fuerza descansando en una ciudad propia.</li>
+        <li><b>Atrincherarse:</b> la tropa que no se mueve dos minutos recibe 40 % menos daño (las cuatro esquinas completas). Moverla lo pierde. La montaña también protege.</li>
+        <li><b>Munición y combustible:</b> cada unidad los gasta al pelear y al marchar, y los repone dentro de tu red de suministro, despacio con la línea estirada y nada si está cortada. Sin munición pega un tercio; sin combustible no marcha. Salen de la reserva nacional de abastos (panel derecho), que crece con tus ciudades y cabe más con cada depósito. Un punto rojo o amarillo junto a la unidad avisa de poca munición o poco combustible.</li>
+        <li><b>Radares:</b> encendido ve lejos pero el enemigo lo localiza siempre y sus misiones de supresión lo buscan. Apagado no ve y solo lo descubren si lo ven. Se enciende y apaga con un clic sobre él.</li>
+        <li><b>Órdenes y puentes:</b> una orden tarda 4 segundos en cumplirse, y 12 más lejos de tu red. Un puente roto se repara solo con el tiempo, y mucho antes con una compañía de infantería al lado.</li>
+        <li><b>Moral:</b> la guerra cansa. Cada compañía o avión perdido y cada ciudad que cae bajan la moral del país; tomar ciudades la sube, y el tiempo la gasta despacio. Con la moral baja las ciudades rinden y resisten menos. En cero, el país colapsa y pierde. Los misiles y drones gastados casi no pesan.</li>
+        <li><b>Cerco:</b> una compañía detenida lejos de tu línea de abastecimiento se rinde a los 5 minutos. Una ciudad cortada de tu capital y tus depósitos capitula a los 6 si el enemigo ya llega hasta ella. Un depósito o recuperar el territorio rompe el cerco.</li>
+        <li><b>Tiempo:</b> al acelerar, la velocidad vuelve sola a ×1 cuando hay una batalla, cae una ciudad o llega un parte. <kbd>N</kbd> avanza hasta el próximo evento y pausa.</li>
+        <li><b>Cupo de tierra:</b> sostienes 12 compañías más una por ciudad propia. Perder territorio deja de pagar el ejército.</li>
+        <li><b>Despliegue:</b> empiezas con la tropa en reserva en la capital y el reloj detenido. Colócala donde quieras dentro de tu territorio, o pulsa «Despliegue automático», y luego «Empezar la guerra».</li>
+        <li><b>Refuerzos y vías:</b> toda compañía nueva se recluta en la capital y viaja al frente. Un camino que cruza territorio tuyo y abastecido es vía logística (puntos claros): por ella se va cuatro veces más rápido. Perder el territorio intermedio o un puente corta la vía.</li>
+        <li><b>Misiones con tropa:</b> una misión solo mueve las compañías que tengas seleccionadas; nunca toma otras por su cuenta.</li>
+        <li><b>Camiones:</b> una compañía de 10 soldados sube y baja del camión con tiempo. Destruida en marcha lo pierde todo; sin camión ya no se puede mover.</li>
+        <li><b>Aire:</b> cada pista guarda aparatos que tardan en rearmarse. Sin antiaéreas destruidas, atacar cuesta caro. El misil no vuelve: es devastador contra lo fijo y flojo contra tropa dispersa.</li>
+        <li><b>Economía:</b> las ciudades dan créditos. Compra tropas en tus ciudades, aparatos en tus pistas, y construye con clic en tu territorio.</li>
+        <li>Solo la infantería desplegada convierte terreno, y solo lo que toca el tuyo. Cuando una ciudad cae, su provincia cambia poco a poco.</li>
+        <li><kbd>×</kbd> cancela una orden (<kbd>X</kbd> la última). <kbd>T</kbd> todas · <kbd>Esc</kbd> sin selección · <kbd>Shift+arrastrar</kbd> recuadro · <kbd>Shift+8, 9, 0</kbd> grupos · <kbd>+ −</kbd> zoom · <kbd>B</kbd> capital · <kbd>F</kbd> última alerta.</li>
+        <li>La partida se guarda sola cada minuto. Puede durar horas: usa <kbd>V</kbd> para acelerar.</li>
+      </ul>
+    </details>
+    <div class="leyenda">
+      <span><i style="--c:var(--personal)"></i>infantería</span>
+      <span><i style="--c:var(--vehiculo)"></i>blindado</span>
+      <span><i style="--c:var(--avion)"></i>caza</span>
+      <span><i style="--c:var(--ataque)"></i>ataque</span>
+      <span><i style="--c:var(--dron)"></i>dron</span>
+      <span><i style="--c:var(--misil)"></i>misil</span>
+      <span><i style="--c:var(--espia)"></i>espionaje</span>
+      <span><i class="tri" style="--c:var(--hueso)"></i>instalación</span>
+      <span><i class="hueco"></i>enemigo</span>
+      <span><i class="hueco gris"></i>sin identificar</span>
+    </div>
+    <div id="bloqueMapa" class="mapa">
+      <label for="mapaSel">mapa</label>
+      <select id="mapaSel"><option value="ejemplo">Dos riberas</option></select>
+      <button id="pegarMapa" type="button">pegar mapa</button>
+      <a id="irAtlas" href="doctrina-atlas.html" hidden>dibujar un mapa</a>
+      <div id="pegado" class="pegado" hidden>
+        <textarea id="jsonMapa" spellcheck="false" aria-label="Mapa en formato JSON, copiado desde el atlas" placeholder="Pega aquí el texto de «guardar / cargar» del atlas"></textarea>
+        <button id="usarPegado" type="button">usar este mapa</button>
+      </div>
+      <div id="msgMapa" role="status"></div>
+    </div>
+    <div class="nivel"><span>Automatización</span><div id="nivelInicio" class="ops"></div><small id="nivelAyuda"></small></div>
+    <div class="acciones"><button id="empezar" class="accion" type="button">Empezar</button><button id="tutorial" class="accion" type="button">Tutorial</button><button id="continuar" class="accion" type="button" hidden>Continuar partida</button></div>
+  </div>
+</section>
+
+<section id="final" class="hoja" hidden>
+  <div>
+    <h1 id="finTitulo"></h1>
+    <p id="finTexto"></p>
+    <div class="cifras">
+      <div><small>duración</small><b id="finT"></b></div>
+      <div><small>terreno tuyo</small><b id="finA"></b></div>
+      <div><small>terreno enemigo</small><b id="finB"></b></div>
+      <div><small>tus bajas</small><b id="finBA"></b></div>
+      <div><small>bajas enemigas</small><b id="finBB"></b></div>
+      <div><small>doctrina enemiga</small><b id="finP"></b></div>
+    </div>
+    <div class="acciones"><button id="otra" class="accion" type="button">Otra partida</button></div>
+  </div>
+</section>
