@@ -9,7 +9,7 @@
 :root {
   --negro: #000000; --hueso: #ece7db; --gris: #8d8c85; --tenue: #55544f; --linea: #2b2a27; --panel: #0b0b0a; --contacto: #9c9b94;
   --t-rio: #6f6e68; --t-costa: #55544f; --t-camino: #5f5e58; --t-frontera: #9a988f;
-  --avion: #56b4e9; --dron: #f0e442; --misil: #ff6a13; --personal: #ece7db; --vehiculo: #cc79a7; --espia: #2fc79f; --ataque: #8f97ff;
+  --avion: #56b4e9; --dron: #f0e442; --misil: #ff6a13; --personal: #ece7db; --vehiculo: #cc79a7; --espia: #2fc79f; --ataque: #8f97ff; --artilleria: #d98e4a; --aamovil: #9fd36b;
   --mono: "Fira Code", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --fs-0: 11px; --fs-1: 12px; --fs-2: 14px; --fs-3: 22px;
   color-scheme: dark;
@@ -26,6 +26,12 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
   top: calc(10px + env(safe-area-inset-top, 0px)); left: calc(12px + env(safe-area-inset-left, 0px)); }
 #titulo { pointer-events: auto; justify-self: start; font-size: var(--fs-2); font-weight: 600; letter-spacing: .04em; }
 #estado { color: var(--gris); font-size: var(--fs-0); font-variant-numeric: tabular-nums; }
+#despliegue { position: fixed; z-index: 4; left: 50%; top: 40px; transform: translateX(-50%); width: min(60ch, calc(100vw - 24px)); background: rgba(0, 0, 0, .94); border: 1px solid var(--hueso); border-radius: 2px; padding: 8px 12px 10px; color: var(--hueso); font-size: var(--fs-1); }
+#despliegue .cab { color: var(--gris); font-size: var(--fs-0); letter-spacing: .12em; text-transform: uppercase; }
+#despliegue p { margin: 4px 0 8px; line-height: 1.45; }
+#despliegue .pie { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+#despliegue .sec { padding: 6px 14px; border: 1px solid var(--linea); color: var(--gris); }
+#plan .ptropa { color: var(--hueso); }
 #tuto { position: fixed; z-index: 4; left: 50%; top: 40px; transform: translateX(-50%); width: min(56ch, calc(100vw - 24px)); background: rgba(0, 0, 0, .94); border: 1px solid var(--hueso); border-radius: 2px; padding: 8px 12px 10px; color: var(--hueso); font-size: var(--fs-1); }
 #tuto .cab { color: var(--gris); font-size: var(--fs-0); letter-spacing: .12em; text-transform: uppercase; }
 #tuto p { margin: 4px 0 8px; line-height: 1.45; }
@@ -177,7 +183,7 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
 .tactil #plan .pfila { grid-template-columns: 8px minmax(0, 1fr) auto 46px 3ch 46px; gap: 10px; }
 .tactil #plan .pfila button { height: 44px; }
 .tactil #plan .sec, .tactil #lanzarPlan { min-height: 46px; padding-inline: 18px; }
-.tactil #tuto .accion, .tactil #tuto .salir { min-height: 44px; padding-inline: 14px; }
+.tactil #tuto .accion, .tactil #tuto .salir, .tactil #despliegue button { min-height: 44px; padding-inline: 14px; }
 /* En un teléfono no cabe todo: el panel de fuerzas cede el sitio al mapa. */
 @media (max-width: 520px) { .tactil #fuerzas { display: none; } .tactil #ctrl button { min-height: 42px; padding: 6px 10px; } }
 @media (pointer: coarse) {
@@ -212,6 +218,7 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
 
 <div id="marcador" role="status" aria-label="Ciudades"></div>
 
+<aside id="despliegue" aria-label="Despliegue inicial" hidden><div class="cab">despliegue</div><p id="despTexto"></p><div class="pie"><button id="despAuto" type="button" class="sec">Despliegue automático</button><button id="despIniciar" type="button" class="accion">Empezar la guerra</button></div></aside>
 <aside id="tuto" role="status" aria-live="polite" aria-label="Tutorial" hidden></aside>
 <div id="menu" role="menu" aria-label="Acciones en este lugar" hidden></div>
 <section id="plan" role="dialog" aria-label="Planificar misión" hidden></section>
@@ -267,10 +274,21 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
         <li><b>Ocupación:</b> una ciudad tomada necesita guarnición. Si no, surge resistencia y puede sublevarse. Bombardearla ayuda a tomarla, pero luego produce menos y es más hostil.</li>
         <li><b>Suministro:</b> viene de tu capital y tus depósitos por tu territorio. Lo que queda cortado rinde menos y se desgasta. El agua solo se cruza por puentes, que se pueden destruir.</li>
         <li><b>Signos:</b> cuatro esquinas alrededor de una compañía, atrincherada; una cola, en marcha; anillo que parpadea, subiendo o bajando del camión. Un arco alrededor es la fuerza que le queda, rojo si es poca. La barra sobre una batalla es la balanza: la parte llena es tuya. La línea punteada clara marca tu abastecimiento pleno y la más tenue, hasta dónde una tropa no queda cercada. Las punteadas hacia un objetivo son misiones en curso.</li>
+        <li><b>Escala y reloj:</b> una celda del mapa es 1 km y un segundo de juego es un minuto. La guerra empieza a las 06:00 del día 1. De 20:00 a 06:00 es de noche: la tropa y los drones ven menos y el satélite óptico no ve; cazas y aviones espía llevan radar y no lo notan. Una tormenta reduce la vista y deja a la aviación con la mitad de su efecto.</li>
+        <li><b>Artillería:</b> emplazada, bate a unos 26 km lo que tu bando ve, y es muy dañina contra columnas en marcha. De cerca casi no sirve. Al disparar se delata unos 25 segundos y la artillería enemiga le responde primero. En un asalto se queda a distancia de tiro.</li>
+        <li><b>Antiaérea móvil:</b> viaja con la columna y, emplazada, dispara a los aviones y drones cercanos. Es más débil que una antiaérea fija.</li>
+        <li><b>Quiebre:</b> una unidad que cae bajo el 35 % de su fuerza se quiebra (círculo hueco): deja de pelear, no obedece y se retira sola a una ciudad tuya. Allí, con suministro y sin enemigo cerca, se rehace hasta el 60 % y vuelve al servicio. La tropa sana también recupera fuerza descansando en una ciudad propia.</li>
+        <li><b>Atrincherarse:</b> la tropa que no se mueve dos minutos recibe 40 % menos daño (las cuatro esquinas completas). Moverla lo pierde. La montaña también protege.</li>
+        <li><b>Munición y combustible:</b> cada unidad los gasta al pelear y al marchar, y los repone dentro de tu red de suministro, despacio con la línea estirada y nada si está cortada. Sin munición pega un tercio; sin combustible no marcha. Salen de la reserva nacional de abastos (panel derecho), que crece con tus ciudades y cabe más con cada depósito. Un punto rojo o amarillo junto a la unidad avisa de poca munición o poco combustible.</li>
+        <li><b>Radares:</b> encendido ve lejos pero el enemigo lo localiza siempre y sus misiones de supresión lo buscan. Apagado no ve y solo lo descubren si lo ven. Se enciende y apaga con un clic sobre él.</li>
+        <li><b>Órdenes y puentes:</b> una orden tarda 4 segundos en cumplirse, y 12 más lejos de tu red. Un puente roto se repara solo con el tiempo, y mucho antes con una compañía de infantería al lado.</li>
         <li><b>Moral:</b> la guerra cansa. Cada compañía o avión perdido y cada ciudad que cae bajan la moral del país; tomar ciudades la sube, y el tiempo la gasta despacio. Con la moral baja las ciudades rinden y resisten menos. En cero, el país colapsa y pierde. Los misiles y drones gastados casi no pesan.</li>
         <li><b>Cerco:</b> una compañía detenida lejos de tu línea de abastecimiento se rinde a los 5 minutos. Una ciudad cortada de tu capital y tus depósitos capitula a los 6 si el enemigo ya llega hasta ella. Un depósito o recuperar el territorio rompe el cerco.</li>
         <li><b>Tiempo:</b> al acelerar, la velocidad vuelve sola a ×1 cuando hay una batalla, cae una ciudad o llega un parte. <kbd>N</kbd> avanza hasta el próximo evento y pausa.</li>
         <li><b>Cupo de tierra:</b> sostienes 12 compañías más una por ciudad propia. Perder territorio deja de pagar el ejército.</li>
+        <li><b>Despliegue:</b> empiezas con la tropa en reserva en la capital y el reloj detenido. Colócala donde quieras dentro de tu territorio, o pulsa «Despliegue automático», y luego «Empezar la guerra».</li>
+        <li><b>Refuerzos y vías:</b> toda compañía nueva se recluta en la capital y viaja al frente. Un camino que cruza territorio tuyo y abastecido es vía logística (puntos claros): por ella se va cuatro veces más rápido. Perder el territorio intermedio o un puente corta la vía.</li>
+        <li><b>Misiones con tropa:</b> una misión solo mueve las compañías que tengas seleccionadas; nunca toma otras por su cuenta.</li>
         <li><b>Camiones:</b> una compañía de 10 soldados sube y baja del camión con tiempo. Destruida en marcha lo pierde todo; sin camión ya no se puede mover.</li>
         <li><b>Aire:</b> cada pista guarda aparatos que tardan en rearmarse. Sin antiaéreas destruidas, atacar cuesta caro. El misil no vuelve: es devastador contra lo fijo y flojo contra tropa dispersa.</li>
         <li><b>Economía:</b> las ciudades dan créditos. Compra tropas en tus ciudades, aparatos en tus pistas, y construye con clic en tu territorio.</li>
@@ -705,9 +723,9 @@ const DOCTRINA = (() => {
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
   // Clases. Un punto es una compañía o un aparato: pocos y valiosos.
-  const INF = 0, BLI = 1, CAZA = 2, ATAQUE = 3, DRON = 4, ESPIA = 5, MISIL = 6;
-  const NOMBRES = ['infantería', 'blindado', 'caza', 'ataque', 'dron', 'avión espía', 'misil'];
-  const esSuelo = c => c === INF || c === BLI;
+  const INF = 0, BLI = 1, CAZA = 2, ATAQUE = 3, DRON = 4, ESPIA = 5, MISIL = 6, ART = 7, AAM = 8;
+  const NOMBRES = ['infantería', 'blindado', 'caza', 'ataque', 'dron', 'avión espía', 'misil', 'artillería', 'antiaérea móvil'];
+  const esSuelo = c => c === INF || c === BLI || c === ART || c === AAM;
   // Estados en tierra.
   const EMBARCANDO = 0, MARCHA = 1, DESEMBARCANDO = 2, DESPLEGADA = 3;
   // Estados en el aire.
@@ -725,27 +743,46 @@ const DOCTRINA = (() => {
       { cruce: 110, vis: 210, idr: 175, costo: 50, obra: 90, rearme: 120, alcance: 5000, r: 18, dano: 1.5, aguante: 900, bombas: 2 },
       { cruce: 45, vis: 300, idr: 250, costo: 140, obra: 300, rearme: 300, alcance: 6600, aguante: 300 },
       { cruce: 20, vis: 40, idr: 30, costo: 110, obra: 300, alcance: 4500, r: 40 },
+      // Artillería: fuego indirecto de largo alcance sobre lo que su bando ve; casi inútil de cerca. Disparar la delata.
+      { cruce: 170, fuerza: 6, vis: 80, idr: 60, rango: 420, directo: 70, cd: 7, costo: 170, obra: 200, peso: 0.5, r: 30, dano: 2.4 },
+      // Antiaérea móvil: viaja con la columna y, emplazada, dispara a lo que vuela cerca.
+      { cruce: 150, fuerza: 5, vis: 150, idr: 110, rango: 150, directo: 40, cd: 5, costo: 150, obra: 180, peso: 0.5, pk: { 2: 0.25, 3: 0.35, 4: 0.5, 5: 0.3 } },
     ],
+    artilleria: { delata: 25, guarnicion: 0.5 },
+    // Abastos: cada unidad carga munición y combustible; los gasta al pelear y al moverse y los repone dentro de la red.
+    abastos: { tiro: { 0: 0.02, 1: 0.02, 7: 0.04, 8: 0.06 }, batalla: 0.0025, autonomia: 3200, sinMunicion: 0.3,
+      repone: { mun: 0.02, comb: 0.03, estirado: 0.075 }, costo: { mun: 1, comb: 0.5, fuerza: 0.1 },
+      reserva: { inicio: 40, base: 60, porDeposito: 20, ingreso: 0.02, porCiudad: 0.004 }, aviso: 0.25 },
+    // Escala declarada: una celda es 1 km y un segundo de juego es un minuto. La guerra empieza a las 06:00 del día 1.
+    reloj: { inicio: 360, amanece: 360, anochece: 1200, visNoche: 0.6 },
+    clima: { cada: 60, prob: 0.04, dura: [240, 480], vis: 0.8, aire: 0.5 },
+    // Dar una orden lleva tiempo, más si la unidad está lejos de su red.
+    orden: { enlace: 4, lejos: 12 },
+    ingenieros: { radio: 60, ritmo: 3 },
+    // Una unidad muy castigada se quiebra: deja de pelear, se retira sola y se rehace en retaguardia.
+    quiebre: { umbral: 0.35, recupera: 0.6, tasa: 0.012, descanso: 0.005, moral: 0.1 },
+    // La tropa que no se mueve se atrinchera; la montaña también protege.
+    fortificacion: { segundos: 120, max: 0.4, montana: 0.75 },
     // Desembarcar y volver a subir expone a la compañía.
     embarque: { subir: 18, bajar: 15 },
     combate: { perdida: 0.05, blindadoVsInf: 1.6, infVsBlindado: 0.5, sinSuministro: 0.6, emboscada: 55, bosque: 0.7 },
     // Efecto de un ataque aéreo según lo que encuentra: la columna en marcha es el blanco ideal.
     expuesto: { marcha: 2.6, maniobra: 1.5, desplegada: 0.45, ciudad: 0.35, bosque: 0.6, blindado: 0.6, camion: 0.25 },
     pkAire: { 2: { 2: 0.45, 3: 0.7, 4: 0.8, 5: 0.55 } },
-    relieve: { vel: [[1, 0, 0.7, 0.45, 1], [1, 0, 0.45, 0.25, 0.9]], camino: [1.5, 1.6] },
+    relieve: { vel: [[1, 0, 0.7, 0.45, 1], [1, 0, 0.45, 0.25, 0.9]], camino: [1.5, 1.6], via: 4 },   // via: un camino en territorio propio y abastecido es vía logística
     terreno: { tasa: 0.04, provincia: 0.006, radio: 5 },
     ciudad: { rZona: 130, guarnicion: 24, ocupada: 12, regenera: 0.06, perdida: 0.002, bonusCapital: 1.6, avance: 1 / 55, libre: 1 / 14, bonus: 1.45, tiros: 5,
       ingreso: 5, capital: 3, bono: 60, dolor: { golpe: 0.05, guar: 3, moral: 0.05 }, repara: 0.0008, antiguedad: 180 },
     resistencia: { sube: 0.008, porDano: 0.03, baja: 0.002, guardia: 8, golpe: 6, cada: 10 },
     suministro: { alcance: 8, cada: 150, desgaste: 0.012 },
     // Agotamiento de guerra: 0 es moral intacta, 1 es el colapso del país.
-    agotamiento: { tiempo: 0.00002, tierra: 0.006, avion: 0.0025, dron: 0.0005, ciudad: 0.04, ingreso: 0.4, moral: 0.5, avisos: [0.5, 0.75, 0.9] },
+    agotamiento: { tiempo: 0.00002, tierra: 0.0045, avion: 0.002, dron: 0.0005, ciudad: 0.04, ingreso: 0.4, moral: 0.5, avisos: [0.5, 0.75, 0.9] },
     // Cerco: lo que queda cortado del suministro avisa, y si nadie lo socorre, se rinde.
     cerco: { aviso: 45, unidad: 300, ciudad: 360, linea: 30, gracia: 300 },
     creditos: { inicio: 900 },
     // Compañías que un bando puede sostener: el territorio da la logística.
     ejercito: { base: 12, porCiudad: 1 },
-    fuerzasIniciales: { inf: 10, bli: 4, hangar: { 2: 10, 3: 8, 4: 10, 5: 3, 6: 14 } },
+    fuerzasIniciales: { inf: 8, bli: 3, art: 1, aam: 1, hangar: { 2: 10, 3: 8, 4: 10, 5: 3, 6: 14 } },
     instalaciones: {
       tope: 34, separacion: 18,
       tipos: [
@@ -953,15 +990,16 @@ const DOCTRINA = (() => {
   }
   function nuevaUnidad(st, s, c, x, y) {
     const cl = DATOS.clases[c];
-    const u = { id: st.sigId++, s, c, x, y, px: x, py: y, tx: x, ty: y, st: DESPLEGADA, cd: 0, fuerza: cl.fuerza, camion: c === INF, via: null, t: 0, m: 0, dead: false, idt: false, oculto: false, urbe: -1, aire: false, sinSum: 0 };
+    const u = { id: st.sigId++, s, c, x, y, px: x, py: y, tx: x, ty: y, st: DESPLEGADA, cd: 0, fuerza: cl.fuerza, camion: c === INF, via: null, t: 0, m: 0, dead: false, idt: false, oculto: false, urbe: -1, aire: false, sinSum: 0, rota: false, fort: 0, delata: 0, mun: 1, comb: 1 };
     st.unidades.push(u);
     return u;
   }
-  function crear({ seed = 1, mapa = null } = {}) {
+  // manual[s]: ese bando arranca con su tropa en reserva en la capital y la coloca antes de que corra el reloj.
+  function crear({ seed = 1, mapa = null, manual = [false, false] } = {}) {
     const m = mapa || A.crearVacio(), der = A.derivar(m);
     const size = A.CELDA, cols = A.COLS, rows = A.ROWS, W = A.W, H = A.H, n = A.N;
     const st = {
-      W, H, sem: seed | 0, seed, t: 0, sigId: 1, sigDef: 1, sigM: 1, sigZ: 1, fin: null, god: false,
+      W, H, despliegue: !!(manual[0] || manual[1]), sem: seed | 0, seed, t: 0, sigId: 1, sigDef: 1, sigM: 1, sigZ: 1, fin: null, god: false,
       unidades: [], ev: [], defensas: [], zonas: [], misiones: [], colas: [[], []],
       creditos: [DATOS.creditos.inicio, DATOS.creditos.inicio], memDef: [new Map(), new Map()],
       ter: { cols, rows, size, ctrl: new Float32Array(n), cuenta: [0, 0] },
@@ -971,7 +1009,7 @@ const DOCTRINA = (() => {
       roto: new Int32Array(n), rotos: [], campos: new Map(), anclas: new Int32Array(n).fill(-1), genRutas: 0, cuotaRutas: 4,
       velT: [new Float32Array(n), new Float32Array(n)],
       ciudades: [], puentes: [], vigia: [[], []], radar: [[], []], fotos: [new Map(), new Map()], alertas: [[], []],
-      urbes: [], conq: [0, 0], agot: [0, 0], stats: { bajas: [0, 0], fuerzaPerdida: [0, 0] }, bases: [{ ...A.BASES[0], s: 0, signo: 1 }, { ...A.BASES[1], s: 1, signo: -1 }],
+      urbes: [], conq: [0, 0], agot: [0, 0], abastos: [DATOS.abastos.reserva.inicio, DATOS.abastos.reserva.inicio], tormenta: 0, stats: { bajas: [0, 0], fuerzaPerdida: [0, 0] }, bases: [{ ...A.BASES[0], s: 0, signo: 1 }, { ...A.BASES[1], s: 1, signo: -1 }],
     };
     st.v = DATOS.clases.map(c => DATOS.dRef / c.cruce);
     const R = DATOS.relieve;
@@ -1006,7 +1044,7 @@ const DOCTRINA = (() => {
       for (let i = 0; i < n; i++) st.mem[s][i] = dueno(st, i);
     }
     armarCiudades(st);
-    for (let s = 0; s < 2; s++) desplegarInicio(st, s);
+    for (let s = 0; s < 2; s++) desplegarInicio(st, s, manual[s]);
     calcularSuministro(st);
     contarTerreno(st);
     vision(st);
@@ -1064,7 +1102,7 @@ const DOCTRINA = (() => {
     return a * 2 > celdas.length ? 1 : b * 2 > celdas.length ? -1 : 0;
   }
   function capitalDe(st, s) { return st.urbes.find(u => u.capital && u.orig === signoDe(s)); }
-  function desplegarInicio(st, s) {
+  function desplegarInicio(st, s, manual) {
     const F = DATOS.fuerzasIniciales, D = DATOS.instalaciones, b = st.bases[s], cap = capitalDe(st, s);
     let pista = null;
     for (const q of D.enCapital) {
@@ -1075,8 +1113,26 @@ const DOCTRINA = (() => {
     for (const [c, n] of Object.entries(F.hangar)) for (let i = 0; i < n; i++) pista.hangar.push({ c: +c, listo: 0, res: 0 });
     // Las tropas iniciales guarnecen las ciudades propias más cercanas a la frontera y la capital.
     const propias = st.urbes.filter(u => u.dueno === signoDe(s) && !u.capital).sort((p, q) => Math.hypot(q.x - b.x, q.y - b.y) - Math.hypot(p.x - b.x, p.y - b.y));
-    for (let i = 0; i < F.inf; i++) { const u = propias[i % Math.max(1, propias.length)] || cap; nuevaUnidad(st, s, INF, u.x + (i % 3 - 1) * 26, u.y + 26); }
-    for (let i = 0; i < F.bli; i++) { const u = propias[i % Math.max(1, propias.length)] || cap; nuevaUnidad(st, s, BLI, u.x + (i % 2) * 30 - 15, u.y - 30); }
+    for (let i = 0; i < F.inf; i++) nuevaUnidad(st, s, INF, cap.x, cap.y);
+    for (let i = 0; i < F.bli; i++) nuevaUnidad(st, s, BLI, cap.x, cap.y);
+    for (let i = 0; i < F.art; i++) nuevaUnidad(st, s, ART, cap.x, cap.y);
+    for (let i = 0; i < F.aam; i++) nuevaUnidad(st, s, AAM, cap.x, cap.y);
+    if (manual) reserva(st, s); else repartir(st, s);
+  }
+  const tierraDe = (st, s) => st.unidades.filter(u => !u.dead && u.s === s && !u.aire);
+  const poner = (st, u, x, y) => { const q = destinoValido(st, x, y); u.x = u.px = u.tx = q.x; u.y = u.py = u.ty = q.y; u.st = DESPLEGADA; u.m = 0; };
+  // En reserva: un anillo alrededor de la capital, para poder elegirlas.
+  function reserva(st, s) {
+    const cap = capitalDe(st, s), L = tierraDe(st, s);
+    L.forEach((u, i) => { const a = i / L.length * Math.PI * 2; poner(st, u, cap.x + Math.cos(a) * 64, cap.y + Math.sin(a) * 64); });
+  }
+  // Reparto automático: guarnece las ciudades propias más cercanas a la frontera.
+  function repartir(st, s) {
+    const b = st.bases[s], cap = capitalDe(st, s);
+    const propias = st.urbes.filter(u => u.dueno === signoDe(s) && !u.capital).sort((p, q) => Math.hypot(q.x - b.x, q.y - b.y) - Math.hypot(p.x - b.x, p.y - b.y));
+    const inf = tierraDe(st, s).filter(u => u.c === INF), bli = tierraDe(st, s).filter(u => u.c !== INF);
+    inf.forEach((w, i) => { const u = propias[i % Math.max(1, propias.length)] || cap; poner(st, w, u.x + (i % 3 - 1) * 26, u.y + 26); });
+    bli.forEach((w, i) => { const u = propias[i % Math.max(1, propias.length)] || cap; poner(st, w, u.x + (i % 2) * 30 - 15, u.y - 30); });
   }
   function contarTerreno(st) {
     let a = 0, b = 0;
@@ -1098,6 +1154,9 @@ const DOCTRINA = (() => {
     }
     return m;
   }
+  // Minuto del día (0–1439) y si es de noche.
+  const minutoDe = st => (DATOS.reloj.inicio + Math.floor(st.t / 30)) % 1440;
+  const esNoche = st => { const m = minutoDe(st); return m < DATOS.reloj.amanece || m >= DATOS.reloj.anochece; };
   function vision(st) {
     const T = st.ter;
     for (let s = 0; s < 2; s++) {
@@ -1108,8 +1167,10 @@ const DOCTRINA = (() => {
       for (const k of st.vigia[s]) puesto(k, DATOS.vigilancia.frontera);
       for (const k of st.ciudades) puesto(k, DATOS.vigilancia.ciudad);
     }
-    for (const u of st.unidades) if (!u.dead) estampar(st, u.s, Math.floor(u.x / T.size), Math.floor(u.y / T.size), Math.max(1, Math.round(DATOS.clases[u.c].vis / T.size)));
-    for (const d of st.defensas) estampar(st, d.s, Math.floor(d.x / T.size), Math.floor(d.y / T.size), st.t < d.listo ? 2 : DATOS.instalaciones.tipos[d.t].vis);
+    // De noche y con tormenta se ve menos; el caza y el avión espía llevan radar y no lo notan.
+    const fv = (esNoche(st) ? DATOS.reloj.visNoche : 1) * (st.tormenta > st.t ? DATOS.clima.vis : 1);
+    for (const u of st.unidades) if (!u.dead) estampar(st, u.s, Math.floor(u.x / T.size), Math.floor(u.y / T.size), Math.max(1, Math.round(DATOS.clases[u.c].vis * (u.c === CAZA || u.c === ESPIA ? 1 : fv) / T.size)));
+    for (const d of st.defensas) estampar(st, d.s, Math.floor(d.x / T.size), Math.floor(d.y / T.size), st.t < d.listo || (d.t === RADAR && d.off) ? 2 : DATOS.instalaciones.tipos[d.t].vis);
     const intel = st.intel || (st.intel = [[], []]);
     for (let s = 0; s < 2; s++) {
       const v = st.vis[s], m = st.mem[s];
@@ -1141,7 +1202,7 @@ const DOCTRINA = (() => {
       const m = st.memDef[s], v = st.vis[s], vivas = new Set();
       for (const d of st.defensas) if (d.s !== s) {
         vivas.add(d.id);
-        if (v[celdaDe(st, d.x, d.y)]) m.set(d.id, { id: d.id, x: d.x, y: d.y, t: d.t, s: d.s, enObra: st.t < d.listo });
+        if (v[celdaDe(st, d.x, d.y)] || (d.t === RADAR && !d.off && st.t >= d.listo)) m.set(d.id, { id: d.id, x: d.x, y: d.y, t: d.t, s: d.s, enObra: st.t < d.listo });
       }
       for (const [id, q] of m) if (!vivas.has(id) && v[celdaDe(st, q.x, q.y)]) m.delete(id);
     }
@@ -1160,6 +1221,7 @@ const DOCTRINA = (() => {
         for (const u of st.unidades) {
           if (u.dead || u.s === s || !dentro(u.x, u.y)) continue;
           if (sa.id === 'optico') {
+            if (esNoche(st) || st.tormenta > st.t) continue;   // el óptico no ve de noche ni con tormenta
             if (!u.aire && st.mapa.areas[celdaDe(st, u.x, u.y)] === A.BOSQUE) continue;
             foto(st, s, u, u.c, sa.id, sa.vida);
             if (st.vis[s][celdaDe(st, u.x, u.y)]) u.idt = true;
@@ -1236,11 +1298,16 @@ const DOCTRINA = (() => {
   }
   function llegar(st, u) {
     u.via = null;
-    if (u.c === INF) { u.st = DESEMBARCANDO; u.t = DATOS.embarque.bajar; } else u.st = DESPLEGADA;
+    if (u.c !== BLI) { u.st = DESEMBARCANDO; u.t = DATOS.embarque.bajar; } else u.st = DESPLEGADA;   // la infantería baja; artillería y antiaérea se emplazan
   }
   function marchar(st, u) {
     const T = st.ter, q = qDe(u), tx = u.tx, ty = u.ty, ci = celdaDe(st, u.x, u.y), cd = celdaDe(st, tx, ty);
-    const pisa = transitable(st, ci), v = st.v[u.c] * (pisa ? st.velT[q][ci] : 1), ac = anclaDe(st, cd);
+    const pisa = transitable(st, ci), ac = anclaDe(st, cd);
+    // Vía logística: por un camino en territorio propio y abastecido se viaja mucho más rápido.
+    const via = pisa && st.velT[q][ci] === Math.fround(DATOS.relieve.camino[q]) && st.sum[u.s][ci] === 1 && dueno(st, ci) === signoDe(u.s);
+    const v = st.v[u.c] * (via ? DATOS.relieve.via : pisa ? st.velT[q][ci] : 1);
+    u.comb -= v * DT / DATOS.abastos.autonomia;
+    if (u.comb <= 0) { u.comb = 0; u.tx = u.x; u.ty = u.y; llegar(st, u); st.ev.push({ k: 'sinCombustible', id: u.id, s: u.s, c: u.c, x: u.x, y: u.y, t: st.t }); return; }
     if (ci === cd || !pisa || anclaDe(st, ci) === ac) { if (mover(u, v, tx, ty)) llegar(st, u); return; }
     const f = campo(st, cd, q);
     if (!f) return;
@@ -1282,8 +1349,24 @@ const DOCTRINA = (() => {
     st.ev.push({ k: 'baja', x: u.x, y: u.y, c: u.c, s: u.s, t: st.t, m: u.m, id: u.id });
   }
   function danar(st, u, d) {
+    if (!u.aire) {
+      const F = DATOS.fortificacion;
+      d *= 1 - F.max * (u.fort || 0);
+      if (st.mapa.areas[celdaDe(st, u.x, u.y)] === A.MONTANA) d *= F.montana;
+    }
     u.fuerza -= d; st.stats.fuerzaPerdida[u.s] += d;
-    if (u.fuerza <= 0.05) matar(st, u);
+    if (u.fuerza <= 0.05) { matar(st, u); return; }
+    if (!u.aire && !u.rota && u.fuerza < DATOS.clases[u.c].fuerza * DATOS.quiebre.umbral) quebrar(st, u);
+  }
+  // Se quiebra: no pelea ni obedece hasta rehacerse; se retira sola a la ciudad propia abastecida más cercana.
+  function quebrar(st, u) {
+    u.rota = true; u.fort = 0; u.m = 0;
+    cansar(st, u.s, DATOS.agotamiento.tierra * DATOS.quiebre.moral);
+    st.ev.push({ k: 'quiebre', id: u.id, s: u.s, c: u.c, x: u.x, y: u.y, t: st.t });
+    if (u.c === INF && !u.camion) return;
+    const signo = signoDe(u.s), h = c => Math.hypot(c.x - u.x, c.y - u.y);
+    const ref = st.urbes.filter(c => c.dueno === signo && !c.batalla && conSuministro(st, u.s, c.x, c.y)).sort((a, b) => h(a) - h(b) || a.id - b.id)[0] || st.urbes.find(c => c.capital && c.dueno === signo);
+    if (ref) ordenarMover(st, u.s, [u], ref.x, ref.y, 0, true);
   }
   function danarInstalacion(st, d, n = 1) {
     d.hp -= n;
@@ -1297,7 +1380,38 @@ const DOCTRINA = (() => {
     if (u.st === EMBARCANDO) { u.t -= DT; if (u.t <= 0) u.st = MARCHA; return; }
     if (u.st === DESEMBARCANDO) { u.t -= DT; if (u.t <= 0) u.st = DESPLEGADA; return; }
     const cl = DATOS.clases[u.c], e = 1 - u.s, C = DATOS.combate, enBatalla = u.urbe >= 0 && st.urbes[u.urbe].batalla;
-    const blanco = enBatalla ? null : masCercano(st, e, 1, u.x, u.y, cl.rango, w => !w.oculto);
+    if (u.rota) { if (u.st === MARCHA) marchar(st, u); return; }
+    if (u.c === ART && u.st === DESPLEGADA && u.cd <= 0 && u.mun > 0) {
+      // Fuego indirecto: sobre lo que su bando ve o sobre una batería que se delató al disparar (contrabatería primero).
+      let t = null, mejor = 1e9;
+      for (const w of st.porLado[e][1]) {
+        if (w.dead) continue;
+        const h = Math.hypot(w.x - u.x, w.y - u.y);
+        if (h > cl.rango || h < cl.directo) continue;
+        const delatada = w.delata > st.t;
+        if (!delatada && (w.oculto || !st.vis[u.s][celdaDe(st, w.x, w.y)])) continue;
+        const p = (delatada && w.c === ART ? 0 : 1e4) + h;
+        if (p < mejor) { mejor = p; t = w; }
+      }
+      if (t) {
+        u.cd = cl.cd * (.85 + azar(st) * .3); u.idt = true; u.oculto = false; u.delata = st.t + seg(DATOS.artilleria.delata); u.mun = Math.max(0, u.mun - DATOS.abastos.tiro[ART]);
+        const x = t.x + (azar(st) - .5) * 24, y = t.y + (azar(st) - .5) * 24;
+        st.ev.push({ k: 'tiro', x: u.x, y: u.y, x2: x, y2: y, c: u.c, s: u.s, t: st.t });
+        golpear(st, u.s, x, y, 'golpe', u);
+        if (t.urbe >= 0) { const c = st.urbes[t.urbe]; if (c.batalla && ladoDe(c.dueno) === e) retirarDeGuarnicion(c, DATOS.artilleria.guarnicion); }
+        return;
+      }
+    }
+    if (u.c === AAM && u.st === DESPLEGADA && u.cd <= 0 && u.mun > 0) {
+      const t = masCercano(st, e, 0, u.x, u.y, cl.rango, w => w.c !== MISIL);
+      if (t) {
+        u.cd = cl.cd; t.idt = true; u.idt = true; u.mun = Math.max(0, u.mun - DATOS.abastos.tiro[AAM]);
+        st.ev.push({ k: 'tiro', x: u.x, y: u.y, x2: t.x, y2: t.y, c: CAZA, s: u.s, t: st.t });
+        if (azar(st) < (cl.pk[t.c] || .3)) matar(st, t);
+        return;
+      }
+    }
+    const blanco = enBatalla ? null : masCercano(st, e, 1, u.x, u.y, cl.directo || cl.rango, w => !w.oculto);
     if (u.st === MARCHA) {
       // Una compañía embarcada no pelea: si la emboscan, desembarca donde esté.
       if (u.c === INF && masCercano(st, e, 1, u.x, u.y, C.emboscada, w => w.st === DESPLEGADA || w.c === BLI)) { u.st = DESEMBARCANDO; u.t = DATOS.embarque.bajar; return; }
@@ -1310,10 +1424,11 @@ const DOCTRINA = (() => {
       st.ev.push({ k: 'tiro', x: u.x, y: u.y, x2: blanco.x, y2: blanco.y, c: u.c, s: u.s, t: st.t });
       const cruce = u.c === BLI && blanco.c === INF ? C.blindadoVsInf : u.c === INF && blanco.c === BLI ? C.infVsBlindado : 1;
       const sum = conSuministro(st, u.s, u.x, u.y) ? 1 : C.sinSuministro, cob = st.mapa.areas[celdaDe(st, blanco.x, blanco.y)] === A.BOSQUE ? C.bosque : 1;
-      danar(st, blanco, C.perdida * u.fuerza * cl.peso * cruce * sum * cob * (.7 + azar(st) * .6));
+      const seca = u.mun > 0 ? 1 : DATOS.abastos.sinMunicion; u.mun = Math.max(0, u.mun - (DATOS.abastos.tiro[u.c] || .02));
+      danar(st, blanco, C.perdida * u.fuerza * cl.peso * cruce * sum * cob * seca * (.7 + azar(st) * .6));
       return;
     }
-    const q = st.defensas.filter(w => w.s === e && Math.hypot(w.x - u.x, w.y - u.y) <= cl.rango).sort((a, b) => Math.hypot(a.x - u.x, a.y - u.y) - Math.hypot(b.x - u.x, b.y - u.y) || a.id - b.id)[0];
+    const q = st.defensas.filter(w => w.s === e && Math.hypot(w.x - u.x, w.y - u.y) <= (cl.directo || cl.rango)).sort((a, b) => Math.hypot(a.x - u.x, a.y - u.y) - Math.hypot(b.x - u.x, b.y - u.y) || a.id - b.id)[0];
     if (q) { u.cd = cl.cd * 2; st.ev.push({ k: 'tiro', x: u.x, y: u.y, x2: q.x, y2: q.y, c: u.c, s: u.s, t: st.t }); if (azar(st) < .35) danarInstalacion(st, q); }
   }
 
@@ -1336,9 +1451,49 @@ const DOCTRINA = (() => {
   }
   function pasoCiudades(st) {
     const C = DATOS.ciudad, K = DATOS.cerco;
+    // Reserva nacional de abastos: entra por las ciudades, cabe según los depósitos.
+    for (let s = 0; s < 2; s++) {
+      const R = DATOS.abastos.reserva, signo = signoDe(s);
+      const tope = R.base + R.porDeposito * st.defensas.filter(d => d.s === s && d.t === DEPOSITO && st.t >= d.listo).length;
+      st.abastos[s] = Math.min(tope, st.abastos[s] + R.ingreso + R.porCiudad * st.urbes.filter(u => u.dueno === signo).length);
+    }
+    // Clima: de vez en cuando una tormenta estorba al aire y a la vista.
+    if (st.t % seg(DATOS.clima.cada) === 0 && st.tormenta <= st.t && azar(st) < DATOS.clima.prob) {
+      const d = DATOS.clima.dura; st.tormenta = st.t + seg(d[0] + azar(st) * (d[1] - d[0]));
+      st.ev.push({ k: 'clima', hasta: st.tormenta, t: st.t });
+    }
+    // Ingenieros: una compañía de infantería junto a un puente roto acelera su reparación.
+    for (const k of st.rotos) {
+      const x = (k % st.ter.cols + .5) * st.ter.size, y = (Math.floor(k / st.ter.cols) + .5) * st.ter.size;
+      if (st.unidades.some(g => !g.dead && g.c === INF && !g.rota && g.st === DESPLEGADA && Math.hypot(g.x - x, g.y - y) <= DATOS.ingenieros.radio)) st.roto[k] -= seg(DATOS.ingenieros.ritmo);
+    }
     for (const g of st.unidades) {
       if (g.aire || g.dead) continue;
       g.urbe = -1;
+      // Reponer munición y combustible: pleno dentro de la red, un hilo con la línea estirada, nada si está cortada. Sale de la reserva nacional.
+      {
+        const B = DATOS.abastos, nivel = st.sum[g.s][celdaDe(st, g.x, g.y)], f = nivel === 1 ? 1 : nivel === 2 ? B.repone.estirado : 0;
+        if (f > 0 && st.abastos[g.s] > 0 && (g.mun < 1 || g.comb < 1)) {
+          const dm = Math.min(1 - g.mun, B.repone.mun * f), dc = Math.min(1 - g.comb, B.repone.comb * f), gasto = dm * B.costo.mun + dc * B.costo.comb;
+          const k = Math.min(1, st.abastos[g.s] / (gasto || 1));
+          g.mun += dm * k; g.comb += dc * k; st.abastos[g.s] = Math.max(0, st.abastos[g.s] - gasto * k);
+        }
+        const bajo = g.mun < B.aviso || g.comb < B.aviso;
+        if (bajo && !g.escasa) st.ev.push({ k: 'escasez', id: g.id, s: g.s, c: g.c, x: g.x, y: g.y, mun: g.mun < B.aviso, t: st.t });
+        g.escasa = bajo;
+      }
+      // Atrincherarse lleva tiempo; rehacerse exige suministro, calma y, para la tropa sana, una ciudad propia.
+      if (g.st !== DESPLEGADA) g.fort = 0;
+      else {
+        const Q = DATOS.quiebre, max = DATOS.clases[g.c].fuerza;
+        if (!g.rota) g.fort = Math.min(1, (g.fort || 0) + 1 / DATOS.fortificacion.segundos);
+        if (g.fuerza < max && conSuministro(st, g.s, g.x, g.y) && !masCercano(st, 1 - g.s, 1, g.x, g.y, 200)) {
+          const enCasa = st.urbes.some(c => c.dueno === signoDe(g.s) && !c.batalla && Math.hypot(c.x - g.x, c.y - g.y) <= C.rZona);
+          const sube = Math.min(max - g.fuerza, g.rota ? Q.tasa * (enCasa ? 1 : .4) : enCasa ? Q.descanso : 0), cuesta = sube * DATOS.abastos.costo.fuerza;
+          if (sube > 0 && st.abastos[g.s] >= cuesta) { g.fuerza += sube; st.abastos[g.s] -= cuesta; }   // los reemplazos también salen de la reserva
+        }
+        if (g.rota && g.fuerza >= max * Q.recupera) { g.rota = false; st.ev.push({ k: 'repuesta', id: g.id, s: g.s, c: g.c, x: g.x, y: g.y, t: st.t }); }
+      }
       // Una compañía aislada aguanta un tiempo y luego se rinde.
       if (conLinea(st, g.s, g.x, g.y)) { g.sinSum = 0; continue; }
       if (g.st === MARCHA || g.st === EMBARCANDO) continue;   // en ruta lleva lo suyo; el reloj corre al detenerse
@@ -1349,13 +1504,13 @@ const DOCTRINA = (() => {
     for (const u of st.urbes) {
       const L = [[], []];
       for (const g of st.unidades) {
-        if (g.dead || g.aire || g.st !== DESPLEGADA || Math.hypot(g.x - u.x, g.y - u.y) > C.rZona) continue;
+        if (g.dead || g.aire || g.rota || g.st !== DESPLEGADA || Math.hypot(g.x - u.x, g.y - u.y) > C.rZona) continue;
         L[g.s].push(g); g.urbe = u.id;
       }
       const h = u.dueno > 0 ? 0 : u.dueno < 0 ? 1 : -1, P = [0, 0];
       for (let s = 0; s < 2; s++) {
         let t = 0;
-        for (const g of L[s]) t += g.fuerza * DATOS.clases[g.c].peso;
+        for (const g of L[s]) t += g.fuerza * DATOS.clases[g.c].peso * (g.mun > 0 ? 1 : DATOS.abastos.sinMunicion);
         const sum = conSuministro(st, s, u.x, u.y) ? 1 : DATOS.combate.sinSuministro;
         P[s] = (t + (h === s ? u.guar : 0)) * sum * (h === s ? (.5 + .5 * u.moral) : 1);
       }
@@ -1364,6 +1519,7 @@ const DOCTRINA = (() => {
         const a = h < 0 ? (P[0] >= P[1] ? 0 : 1) : 1 - h, d = 1 - a, bonus = h === d ? C.bonus * (u.capital ? C.bonusCapital : 1) * (1 - u.dano * .5) : 1, Pa = P[a], Pd = P[d] * bonus;
         const firme = signoDe(a), objetivo = u.barrios.find(b => b.dueno !== firme);
         const nueva = !u.batalla;
+        for (const g of L[0].concat(L[1])) g.mun = Math.max(0, g.mun - DATOS.abastos.batalla);   // pelear gasta munición
         u.batalla = { a, inicio: nueva ? st.t : u.batalla.inicio, P: [P[0], P[1]] };
         if (nueva) st.ev.push({ k: 'batalla', id: u.id, x: u.x, y: u.y, a, t: st.t });
         if (Pd > 0) {
@@ -1566,7 +1722,8 @@ const DOCTRINA = (() => {
     const r = modo === 'misil' ? DATOS.clases[MISIL].r : (cl.r || 34);
     let impactos = 0;
     if (modo !== 'sup') {
-      const dano = modo === 'misil' ? 1.6 : (cl.dano || 4);
+      // Con tormenta, la aviación acierta la mitad; la artillería y los misiles no lo notan.
+      const dano = (modo === 'misil' ? 1.6 : (cl.dano || 4)) * (u && u.aire && st.tormenta > st.t ? DATOS.clima.aire : 1);
       for (const w of st.porLado[e][1]) {
         if (w.dead || Math.hypot(w.x - x, w.y - y) > r) continue;
         let f = w.st === MARCHA ? R.marcha : w.st === DESPLEGADA ? R.desplegada : R.maniobra;
@@ -1586,7 +1743,7 @@ const DOCTRINA = (() => {
         impactos++;
       }
     }
-    const ins = st.defensas.filter(d => d.s === e && Math.hypot(d.x - x, d.y - y) <= (modo === 'sup' ? 70 : r) && (modo !== 'sup' || d.t === AA || d.t === AM || d.t === RADAR));
+    const ins = st.defensas.filter(d => d.s === e && Math.hypot(d.x - x, d.y - y) <= (modo === 'sup' ? 70 : r) && (modo !== 'sup' || d.t === AA || d.t === AM || (d.t === RADAR && !d.off)));   // la supresión busca emisiones: un radar apagado no la atrae
     for (const d of ins) {
       const hit = azar(st) < (modo === 'sup' ? .9 : modo === 'misil' ? .95 : .6);
       if (!hit) continue;
@@ -1695,7 +1852,15 @@ const DOCTRINA = (() => {
       if (rol !== 'esc' && rol !== 'rec') m.ataquesTotal++;
       m.pend.push({ d: p.d, h: p.h, c: p.c, rol, sale: st.t + seg(tMax - p.eta) });
     }
-    if (tropas.length) ordenarMover(st, s, tropas, x, y, m.id);
+    if (tropas.length) {
+      // En un asalto, artillería y antiaérea no entran a la ciudad: se emplazan a distancia de tiro.
+      const apoyo = o.tipo === 'asalto' ? tropas.filter(u => u.c === ART || u.c === AAM) : [];
+      ordenarMover(st, s, tropas.filter(u => !apoyo.includes(u)), x, y, m.id);
+      for (const u of apoyo) {
+        const h = Math.hypot(u.x - x, u.y - y) || 1, r = Math.min(h, u.c === ART ? DATOS.clases[ART].rango * .6 : 120);
+        ordenarMover(st, s, [u], x + (u.x - x) / h * r, y + (u.y - y) / h * r, m.id);
+      }
+    }
     st.misiones.push(m);
     return m;
   }
@@ -1721,12 +1886,16 @@ const DOCTRINA = (() => {
     if (st.misiones.length > 80) st.misiones = st.misiones.filter(m => m.estado !== 'fin' || st.t - m.fin < seg(120));
   }
   /* ---------- Órdenes ---------- */
-  function ordenarMover(st, s, lista, x, y, m = 0) {
+  function ordenarMover(st, s, lista, x, y, m = 0, forzar = false) {
+    if (!forzar) lista = lista.filter(u => !u.rota);   // la tropa quebrada no obedece hasta rehacerse
+    lista = lista.filter(u => u.comb > 0.01);        // sin combustible no hay marcha
     lista.forEach((u, i) => {
       const a = i * 2.4, d = i ? 16 + Math.sqrt(i) * 12 : 0, q = destinoValido(st, clamp(x + Math.cos(a) * d, 0, st.W), clamp(y + Math.sin(a) * d, 0, st.H));
-      u.tx = q.x; u.ty = q.y; u.m = m;
+      u.tx = q.x; u.ty = q.y; u.m = m; u.fort = 0;
       if (u.st === MARCHA) return;
-      if (u.c === INF) { u.st = EMBARCANDO; u.t = DATOS.embarque.subir; } else u.st = MARCHA;
+      // La orden tarda en llegar, más lejos de la red; luego la infantería embarca y las piezas se desmontan.
+      const demora = DATOS.orden.enlace + (conSuministro(st, s, u.x, u.y) ? 0 : DATOS.orden.lejos);
+      u.st = EMBARCANDO; u.t = demora + (u.c !== BLI ? DATOS.embarque.subir : 0);
     });
   }
   // Devuelve el motivo por el que no se puede construir aquí, o '' si se puede.
@@ -1751,6 +1920,7 @@ const DOCTRINA = (() => {
     const cl = DATOS.clases[c], u = st.urbes[id];
     if (!cl || !esSuelo(c)) return 'clase inválida';
     if (!u || u.dueno !== signoDe(s)) return 'ciudad ajena';
+    if (!u.capital) return 'solo en la capital';
     if (!u.capital && st.t - u.desde < seg(DATOS.ciudad.antiguedad) && u.desde > 0) return 'recién tomada';
     if (u.batalla) return 'en batalla';
     if (!conSuministro(st, s, u.x, u.y)) return 'sin suministro';
@@ -1839,6 +2009,20 @@ const DOCTRINA = (() => {
       }
       return n > 0;
     }
+    // Despliegue inicial: colocar la reserva en territorio propio, repartirla sola, y dar por empezada la guerra.
+    if (o.t === 'colocar') {
+      if (!st.despliegue) return false;
+      const k = celdaDe(st, o.x, o.y);
+      if (dueno(st, k) !== signoDe(s) || !transitable(st, k)) return false;
+      const L = st.unidades.filter(u => !u.dead && u.s === s && !u.aire && Array.isArray(o.ids) && o.ids.includes(u.id));
+      L.forEach((u, i) => { const a = i * 2.4, d = i ? 18 + Math.sqrt(i) * 12 : 0; poner(st, u, clamp(o.x + Math.cos(a) * d, 0, st.W), clamp(o.y + Math.sin(a) * d, 0, st.H)); });
+      if (L.length) { indexar(st); vision(st); }
+      return L.length > 0;
+    }
+    if (o.t === 'desplegarAuto') { if (!st.despliegue) return false; repartir(st, s); indexar(st); vision(st); return true; }
+    if (o.t === 'iniciar') { if (!st.despliegue) return false; st.despliegue = false; indexar(st); calcularSuministro(st); vision(st); return true; }
+    // Encender o apagar un radar propio: encendido ve lejos y se delata; apagado no ve ni lo oyen.
+    if (o.t === 'radar') { const d = st.defensas.find(q => q.id === o.id && q.s === s && q.t === RADAR); if (!d) return false; d.off = !o.on; return true; }
     if (o.t === 'god') { if (s !== 0) return false; st.god = !!o.on; return true; }
     return false;
   }
@@ -1860,7 +2044,7 @@ const DOCTRINA = (() => {
     const signo = v.s === 0 ? 1 : -1, C = DATOS.clases, b = v.base, e = v.baseEnemiga, cr = { v: v.creditos };
     const d = (q, w) => Math.hypot(q.x - w.x, q.y - w.y);
     const mias = v.ciudades.filter(c => c.dueno === signo), ajenas = v.ciudades.filter(c => c.dueno !== signo);
-    const tierra = v.propias.filter(u => !u.aire), enemigosT = v.contactos.filter(u => !u.aire);
+    const tierra = v.propias.filter(u => !u.aire && !u.rota), enemigosT = v.contactos.filter(u => !u.aire);
     const distFrente = c => ajenas.reduce((m, q) => Math.min(m, d(c, q)), 1e9);
     // Zonas de control: capital y ciudades del frente.
     const frente = mias.filter(c => !c.capital).sort((x, y) => distFrente(x) - distFrente(y)).slice(0, 3);
@@ -1873,14 +2057,14 @@ const DOCTRINA = (() => {
     }
     // Compras: lo que más falta respecto de su doctrina.
     const hay = c => v.propias.filter(u => u.c === c).length + (v.hangar[c] ? v.hangar[c].total : 0) + v.cola.filter(q => q.c === c).length;
-    const metas = [[INF, 20 * p.tierra], [BLI, 8 * p.tierra], [CAZA, 12 * p.aire], [ATAQUE, 10 * p.aire], [DRON, 9], [ESPIA, 3], [MISIL, 12 * p.aire]];
+    const metas = [[INF, 20 * p.tierra], [BLI, 8 * p.tierra], [ART, 4 * p.tierra], [AAM, 3], [CAZA, 12 * p.aire], [ATAQUE, 10 * p.aire], [DRON, 9], [ESPIA, 3], [MISIL, 12 * p.aire]];
     metas.sort((x, y) => hay(x[0]) / x[1] - hay(y[0]) / y[1]);
     const pista = v.defensas.find(q => q.t === PISTA && v.t >= q.listo);
     for (const [c] of metas) {
       if (cr.v < C[c].costo) continue;
       if (esSuelo(c)) {
         if (tierra.length + v.cola.filter(q => esSuelo(q.c)).length >= DATOS.ejercito.base + mias.length * DATOS.ejercito.porCiudad) continue;
-        const lugar = mias.filter(q => q.suministro && !q.batalla && (q.capital || v.t - q.desde > seg(DATOS.ciudad.antiguedad))).sort((x, y) => distFrente(x) - distFrente(y))[0];
+        const lugar = mias.find(q => q.capital && !q.batalla);   // todo lo nuevo nace en la capital
         if (lugar) { o.push({ t: 'reclutar', c, u: lugar.id }); cr.v -= C[c].costo; }
       } else if (pista) { o.push({ t: 'reclutar', c, d: pista.id }); cr.v -= C[c].costo; }
       break;
@@ -2043,12 +2227,12 @@ const DOCTRINA = (() => {
     for (const u of st.unidades) {
       if (u.dead) continue;
       if (u.s === s) propias.push(u);
-      else if (st.fin || (v[celdaDe(st, u.x, u.y)] && !u.oculto)) contactos.push(st.fin || u.idt ? u : { id: u.id, s: u.s, x: u.x, y: u.y, px: u.px, py: u.py, c: -1, st: -1, tx: u.x, ty: u.y, gris: true, aire: u.aire });
+      else if (st.fin || (v[celdaDe(st, u.x, u.y)] && !u.oculto) || u.delata > st.t) contactos.push(st.fin || u.idt ? u : { id: u.id, s: u.s, x: u.x, y: u.y, px: u.px, py: u.py, c: -1, st: -1, tx: u.x, ty: u.y, gris: true, aire: u.aire });
     }
     const intel = st.intel[s], be = st.bases[1 - s], signo = signoDe(s);
     return {
       s, t: st.t, W: st.W, H: st.H, cols: T.cols, rows: T.rows, size: T.size, base: st.bases[s], baseEnemiga: { x: be.x, y: be.y },
-      propias, contactos, linea: (x, y) => conLinea(st, s, x, y), celdas: st.mem[s], visibles: v, pasable: k => transitable(st, k), fotos: [...st.fotos[s].values()], alertas: st.alertas[s],
+      propias, contactos, abastos: st.abastos[s], minuto: minutoDe(st), noche: esNoche(st), tormenta: st.tormenta > st.t, linea: (x, y) => conLinea(st, s, x, y), celdas: st.mem[s], visibles: v, pasable: k => transitable(st, k), fotos: [...st.fotos[s].values()], alertas: st.alertas[s],
       creditos: st.creditos[s], defensas: st.defensas.filter(d => d.s === s), defensasE: st.fin ? st.defensas.filter(d => d.s !== s).map(d => ({ id: d.id, x: d.x, y: d.y, t: d.t, s: d.s, enObra: st.t < d.listo })) : [...st.memDef[s].values()],
       hangar: resumenHangar(st, s), cola: st.colas[s], zonas: st.zonas.filter(z => z.s === s), misiones: st.misiones.filter(m => m.s === s),
       ciudades: st.urbes.map(u => {
@@ -2064,8 +2248,8 @@ const DOCTRINA = (() => {
   }
 
   /* ---------- Partida ---------- */
-  function partida({ seed = 1, mapa = null, ia0 = null, ia1 = 'auto' } = {}) {
-    const st = crear({ seed, mapa });
+  function partida({ seed = 1, mapa = null, ia0 = null, ia1 = 'auto', manual = false } = {}) {
+    const st = crear({ seed, mapa, manual: [!!manual, false] });
     const ias = [ia0, ia1].map((x, i) => {
       if (!x) return null;
       if (typeof x === 'function') return { fn: x };
@@ -2075,6 +2259,7 @@ const DOCTRINA = (() => {
   }
   function avanzar(g, ordenes) {
     const st = g.st, todas = ordenes ? ordenes.map(o => [0, o]) : [];
+    if (st.despliegue) { for (const [s, o] of todas) aplicar(st, s, o); return; }   // el reloj no corre hasta empezar
     if (st.t % 30 === 0) {
       const prim = (st.t / 30) % 2;
       for (const s of [prim, 1 - prim]) {
@@ -2102,7 +2287,7 @@ const DOCTRINA = (() => {
     const mapa = A.aJSON({ nombre: st.mapa.nombre, areas: st.mapa.areas, lineas: st.mapa.lineas, simetria: false, sigG: 1 });
     const misiones = st.misiones.map(m => ({ ...m, pend: m.pend.map(p => ({ did: p.d.id, hi: p.d.hangar.indexOf(p.h), c: p.c, rol: p.rol, sale: p.sale })) }));
     return JSON.stringify({ formato: 'doctrina-partida', v: 1, mapa, t: st.t, sem: st.sem, seed: st.seed, sigId: st.sigId, sigDef: st.sigDef, sigM: st.sigM, sigZ: st.sigZ, god: st.god, fin: st.fin,
-      agot: st.agot, unidades: st.unidades, defensas: st.defensas, zonas: st.zonas, misiones, colas: st.colas, creditos: st.creditos, urbes: st.urbes, conq: st.conq, stats: st.stats, intel: st.intel,
+      agot: st.agot, abastos: st.abastos, tormenta: st.tormenta, unidades: st.unidades, defensas: st.defensas, zonas: st.zonas, misiones, colas: st.colas, creditos: st.creditos, urbes: st.urbes, conq: st.conq, stats: st.stats, intel: st.intel,
       fotos: st.fotos.map(m => [...m.values()]), memDef: st.memDef.map(m => [...m.values()]), alertas: st.alertas,
       ctrl: aB64(st.ter.ctrl), mem: st.mem.map(aB64), memRoto: st.memRoto.map(aB64), rotos: st.rotos.map(k => [k, st.roto[k]]) });
   }
@@ -2110,9 +2295,10 @@ const DOCTRINA = (() => {
     const o = JSON.parse(txt);
     if (!o || o.formato !== 'doctrina-partida') throw new Error('No es una partida guardada de doctrina.');
     const st = crear({ seed: o.seed, mapa: A.deJSON(o.mapa) });
-    for (const k of ['t', 'sem', 'sigId', 'sigDef', 'sigM', 'sigZ', 'god', 'fin', 'unidades', 'defensas', 'zonas', 'colas', 'creditos', 'conq', 'agot', 'stats', 'intel', 'alertas']) st[k] = o[k];
+    for (const k of ['t', 'sem', 'sigId', 'sigDef', 'sigM', 'sigZ', 'god', 'fin', 'unidades', 'defensas', 'zonas', 'colas', 'creditos', 'conq', 'agot', 'despliegue', 'abastos', 'tormenta', 'stats', 'intel', 'alertas']) st[k] = o[k];
     // Partidas guardadas antes del cerco y el agotamiento.
-    st.agot = o.agot || [0, 0]; for (const u of st.unidades) u.sinSum = u.sinSum || 0;
+    st.agot = o.agot || [0, 0]; for (const u of st.unidades) { u.sinSum = u.sinSum || 0; u.fort = u.fort || 0; u.delata = u.delata || 0; u.rota = !!u.rota; if (u.mun === undefined) { u.mun = 1; u.comb = 1; } }
+    st.abastos = o.abastos || [DATOS.abastos.reserva.inicio, DATOS.abastos.reserva.inicio]; st.tormenta = o.tormenta || 0;
     const dur = st.urbes.map((u, i) => ({ cerco: 0, ...o.urbes[i], celdas: u.celdas }));
     st.urbes = dur;
     st.fotos = o.fotos.map(l => new Map(l.map(f => [f.id, f])));
@@ -2128,8 +2314,8 @@ const DOCTRINA = (() => {
   }
 
   return {
-    DT, INF, BLI, CAZA, ATAQUE, DRON, ESPIA, MISIL, AA, AM, FORTIN, RADAR, PISTA, DEPOSITO, EMBARCANDO, MARCHA, DESEMBARCANDO, DESPLEGADA, IDA, ORBITA, REGRESO,
-    NOMBRES, DATOS, POSTURAS, crear, paso, aplicar, vista, celdaDe, dueno, transitable, destinoValido, eta, etaRuta, satelites, esSuelo, puedeConstruir, puedeReclutar, puedeComprarAire, cupoTierra, matar, caerCiudad, cansar,
+    DT, INF, BLI, CAZA, ATAQUE, DRON, ESPIA, MISIL, ART, AAM, AA, AM, FORTIN, RADAR, PISTA, DEPOSITO, EMBARCANDO, MARCHA, DESEMBARCANDO, DESPLEGADA, IDA, ORBITA, REGRESO,
+    NOMBRES, DATOS, POSTURAS, crear, paso, aplicar, vista, celdaDe, dueno, transitable, destinoValido, eta, etaRuta, satelites, esSuelo, puedeConstruir, puedeReclutar, puedeComprarAire, cupoTierra, minutoDe, esNoche, quebrar, danar, matar, caerCiudad, cansar,
     iaCrear, iaDecidir, partida, avanzar, hash, mulberry, indexar, vision, calcularSuministro, golpear, pasoCiudades, resumenHangar, capitalDe, serializar, deserializar, hangarLibre,
   };
 })();
@@ -2144,7 +2330,8 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
   const capa = document.createElement('canvas'), cc = capa.getContext('2d');
   const capaEst = document.createElement('canvas'), ce = capaEst.getContext('2d');
   const tok = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-  const VAR = ['--personal', '--vehiculo', '--avion', '--ataque', '--dron', '--espia', '--misil'];
+  const VAR = ['--personal', '--vehiculo', '--avion', '--ataque', '--dron', '--espia', '--misil', '--artilleria', '--aamovil'];
+  const TIERRA = [S.INF, S.BLI, S.ART, S.AAM];
   const COL = VAR.map(tok);
   // El color de una instalación dice su función.
   const VAR_DEF = ['--avion', '--misil', '--personal', '--espia', '--ataque', '--vehiculo'], COL_DEF = VAR_DEF.map(tok);
@@ -2233,7 +2420,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
 
   /* ---------- Selección de tropas ---------- */
   const propiasTierra = () => st.unidades.filter(u => !u.dead && u.s === 0 && !u.aire);
-  const puedeMoverse = u => u.c !== S.INF || u.camion;
+  const puedeMoverse = u => (u.c !== S.INF || u.camion) && !u.rota && u.comb > 0.01;
   function fijarSeleccion(ids) { seleccion = new Set(ids); pintarSeleccion(); }
   function limpiarSeleccion() { if (seleccion.size) fijarSeleccion([]); }
   function seleccionarTodas() {
@@ -2275,16 +2462,17 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     cerrarMenu(); cerrarPlan(); seleccion = new Set(); grupos = {};
     acu = { pro: S.NOMBRES.map(() => 0), ene: S.NOMBRES.map(() => 0), lugar: null };
     marcas = { bajas: 0, alertaT: -1, sat: {}, conGod: false };
-    tuto = null; consejoAbierto = false; pintarTuto();
+    tuto = null; consejoAbierto = false; eraNoche = null; pintarTuto(); $('despliegue').hidden = true;
     $('registro').textContent = ''; $('vel').textContent = '×1'; $('final').hidden = true; $('titulo').textContent = 'doctrina';
     medir(); irABase(); pintarSeleccion(); hud();
   }
   function nueva() {
-    g = S.partida({ seed: (Date.now() ^ (Math.random() * 1e9)) | 0, mapa: mapaActual, ia1: 'auto' });
+    g = S.partida({ seed: (Date.now() ^ (Math.random() * 1e9)) | 0, mapa: mapaActual, ia1: 'auto', manual: true });
     st = g.st; iniciarEstado();
   }
   function guardar(avisar) {
     if (tuto) { if (avisar) aviso('el tutorial no se guarda'); return; }
+    if (st.despliegue) { if (avisar) aviso('aún no hay nada que guardar'); return; }
     if (st.fin) { try { localStorage.removeItem(CLAVE_GUARDADO); } catch (_) { /* sin almacenamiento */ } return; }
     try {
       localStorage.setItem(CLAVE_GUARDADO, JSON.stringify({ ia: g.ias[1] ? g.ias[1].nombre : 'equilibrada', estado: S.serializar(st) }));
@@ -2467,7 +2655,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       if (!enVista(x, y)) continue;
       const q = new Path2D(), r = (d.t === S.PISTA ? 8 : 6) * fp;
       triangulo(q, x, y, r);
-      ctx.globalAlpha = obra ? .45 : 1;
+      ctx.globalAlpha = obra || d.off ? .45 : 1;
       if (propia) { ctx.fillStyle = COL_DEF[d.t]; ctx.fill(q); }
       else { ctx.strokeStyle = COL_DEF[d.t]; ctx.lineWidth = 1.2; ctx.stroke(q); }
       ctx.globalAlpha = 1;
@@ -2539,6 +2727,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     }
     for (const [k, tr] of trazos) if (tr.g !== generacion) trazos.delete(k);
     const pro = trazosClase(), ene = trazosClase(), grises = new Path2D(), centros = new Path2D(), anillos = new Path2D(), camiones = new Path2D(), marchando = new Path2D();
+    const rotas = trazosClase(), sinMun = new Path2D(), sinComb = new Path2D();
     const ut = tactil ? 1.4 : 1, det = s >= niveles[1] * .95, trincheras = new Path2D(), colas = new Path2D(), arcos = new Path2D(), arcosBajos = new Path2D(), aisladas = [], CL = S.DATOS.clases;
     for (const u of todos) {
       const x = X(u.px + (u.x - u.px) * a), y = Y(u.py + (u.y - u.py) * a);
@@ -2547,14 +2736,17 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       const f = (u.aire ? 3.2 : (u.c === S.INF ? 2.6 + u.fuerza * .22 : 4.4)) * ut;
       if (u.s === 0) {
         if (!u.aire && u.c === S.INF && (u.st === S.MARCHA || u.st === S.EMBARCANDO)) pro[u.c].rect(x - f, y - f * .8, f * 2, f * 1.6);
-        else circulo(pro[u.c], x, y, f);
+        else circulo(u.rota ? rotas[u.c] : pro[u.c], x, y, f);
         if (seleccion.has(u.id)) circulo(anillos, x, y, f + 6.5);
         if (!u.aire && u.c === S.INF && u.st === S.DESPLEGADA && u.camion) camiones.rect(x - 1.7, y + f + 4.6, 3.4, 2.2);
         if (!u.aire && (u.st === S.EMBARCANDO || u.st === S.DESEMBARCANDO)) circulo(marchando, x, y, f + 2.6);
-        if (!u.aire && det && u.st === S.DESPLEGADA) {
+        if (!u.aire && det && u.mun < S.DATOS.abastos.aviso) sinMun.rect(x + f + 1.5, y - f - 3.5, 2.4, 2.4);
+        if (!u.aire && det && u.comb < S.DATOS.abastos.aviso) sinComb.rect(x - f - 3.9, y - f - 3.5, 2.4, 2.4);
+        if (!u.aire && det && u.st === S.DESPLEGADA && u.fort >= .5) {
           // Atrincherada: cuatro esquinas alrededor.
           const h = f + 3.4, e = 2.4;
-          for (const [a1, b1] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { trincheras.moveTo(x + a1 * (h - e), y + b1 * h); trincheras.lineTo(x + a1 * h, y + b1 * h); trincheras.lineTo(x + a1 * h, y + b1 * (h - e)); }
+          // Dos esquinas a medio atrincherar, las cuatro cuando ya lo está.
+          for (const [a1, b1] of (u.fort >= 1 ? [[-1, -1], [1, -1], [1, 1], [-1, 1]] : [[-1, -1], [1, 1]])) { trincheras.moveTo(x + a1 * (h - e), y + b1 * h); trincheras.lineTo(x + a1 * h, y + b1 * h); trincheras.lineTo(x + a1 * h, y + b1 * (h - e)); }
         }
         if (!u.aire && u.sinSum > 0) aisladas.push([x, y, f, u.sinSum]);
       } else rombo(ene[u.c], x, y, (u.aire ? 4.6 : 5) * ut);
@@ -2570,7 +2762,8 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       }
     }
     ctx.lineWidth = 1.2;
-    for (let c = 0; c < COL.length; c++) { ctx.fillStyle = COL[c]; ctx.fill(pro[c]); ctx.strokeStyle = COL[c]; ctx.stroke(ene[c]); }
+    for (let c = 0; c < COL.length; c++) { ctx.fillStyle = COL[c]; ctx.fill(pro[c]); ctx.strokeStyle = COL[c]; ctx.stroke(ene[c]); ctx.stroke(rotas[c]); }
+    ctx.fillStyle = COL[S.MISIL]; ctx.fill(sinMun); ctx.fillStyle = COL[S.DRON]; ctx.fill(sinComb);
     ctx.strokeStyle = CONTACTO; ctx.stroke(grises); ctx.fillStyle = CONTACTO; ctx.fill(centros);
     ctx.fillStyle = COL[S.BLI]; ctx.fill(camiones);
     ctx.globalAlpha = calma ? 1 : .35 + .65 * Math.abs(Math.sin(performance.now() / 320));
@@ -2665,6 +2858,11 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       if (e.s === 0) { registrar(`La moral del país baja a ${p} %: si llega a cero, colapsas`, true); Sonido.sonar('alarma'); frenar(`moral en ${p} %`); }
       else registrar(`La moral enemiga baja a ${p} %`, false);
     }
+    else if (e.k === 'quiebre' && e.s === 0) { registrar(`${S.NOMBRES[e.c]} quebrada: se retira a rehacerse`, false, e); consejo('quiebre', 'Una unidad muy castigada se quiebra: deja de pelear y se retira sola a una ciudad tuya, donde se rehace con suministro y calma. Retira la tropa antes de que llegue a ese punto y durará más.'); }
+    else if (e.k === 'repuesta' && e.s === 0) registrar(`${S.NOMBRES[e.c]} rehecha, vuelve al servicio`, false, e);
+    else if (e.k === 'sinCombustible' && e.s === 0) { registrar(`${S.NOMBRES[e.c]} sin combustible: detenida`, true, e); faro(e.x, e.y, 'combate'); consejo('combustible', 'Marchar gasta combustible y solo se repone dentro de tu red de suministro. Una columna que se queda seca fuera de ella no se mueve hasta que la red la alcance: avanza por etapas o construye un depósito.'); }
+    else if (e.k === 'escasez' && e.s === 0) registrar(`${S.NOMBRES[e.c]} con poca ${e.mun ? 'munición' : 'reserva de combustible'}`, false, e);
+    else if (e.k === 'clima') { registrar('Tormenta: se ve menos y la aviación rinde la mitad', true); frenar('tormenta'); }
     else if (e.k === 'aislada' && e.s === 0) { registrar(`${S.NOMBRES[e.c]} aislada: se rinde en ${min(K.unidad - K.aviso)} min`, true, e); faro(e.x, e.y, 'combate'); frenar('compañía aislada'); consejo('aislada', 'Una compañía detenida lejos de tu línea de abastecimiento se rinde a los cinco minutos. Muévela de vuelta hacia tu territorio, o construye un depósito cerca.'); }
     else if (e.k === 'rendicion' && e.s === 0) { registrar(`Una compañía de ${S.NOMBRES[e.c]} se rindió, cercada`, true, e); frenar('una compañía se rindió'); }
     else if (e.k === 'pacificada' && e.s === 0) registrar(`${nom(e.id)} pacificada`, false, e);
@@ -2676,7 +2874,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       registrar(`Parte M${e.id} · ${T.nombre}: ${e.tipo === 'reconocimiento' || e.tipo === 'refuerzo' || e.tipo === 'asalto' ? (e.res.perdidas ? ds[1] : 'cumplida') : ds.join(', ')}`, !!e.res.perdidas, e);
     }
   }
-  const NOTICIA = new Set(['ciudad', 'batalla', 'revuelta', 'pacificada', 'sinAire', 'lista', 'parte', 'cercada', 'capitula', 'aislada', 'rendicion', 'moral']);
+  const NOTICIA = new Set(['ciudad', 'batalla', 'revuelta', 'pacificada', 'sinAire', 'lista', 'parte', 'cercada', 'capitula', 'aislada', 'rendicion', 'moral', 'quiebre', 'repuesta', 'sinCombustible', 'escasez', 'clima']);
   function dibujarEfectos() {
     const vis = st.vis[0], fin = !!st.fin;
     for (const e of st.ev) {
@@ -2849,14 +3047,16 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
   })();
 
   // Suministro: el borde interior es el abastecimiento pleno; el exterior, hasta dónde una tropa no queda cercada.
-  let sumClave = -1, sumPleno = null, sumLinea = null;
+  let sumClave = -1, sumPleno = null, sumLinea = null, vias = null;
   function dibujarSuministro() {
     const clave = st.seed * 1e7 + (st.t - st.t % 150);
     if (clave !== sumClave) {
-      sumClave = clave; sumPleno = new Path2D(); sumLinea = new Path2D();
+      sumClave = clave; sumPleno = new Path2D(); sumLinea = new Path2D(); vias = new Path2D();
+      const camino = Math.fround(S.DATOS.relieve.camino[0]), V = st.velT[0], C = st.ter.ctrl;
       const M = st.sum[0], c = st.ter.cols, r = st.ter.rows, z = st.ter.size;
       for (let j = 0; j < r; j++) for (let i = 0; i < c; i++) {
         const a = M[i + j * c];
+        if (a === 1 && V[i + j * c] === camino && C[i + j * c] > 0) vias.rect((i + .5) * z - .9, (j + .5) * z - .9, 1.8, 1.8);   // vía logística activa
         if (i + 1 < c) { const b = M[i + 1 + j * c]; if ((a === 1) !== (b === 1)) { sumPleno.moveTo((i + 1) * z, j * z); sumPleno.lineTo((i + 1) * z, (j + 1) * z); } if ((a > 0) !== (b > 0)) { sumLinea.moveTo((i + 1) * z, j * z); sumLinea.lineTo((i + 1) * z, (j + 1) * z); } }
         if (j + 1 < r) { const b = M[i + (j + 1) * c]; if ((a === 1) !== (b === 1)) { sumPleno.moveTo(i * z, (j + 1) * z); sumPleno.lineTo((i + 1) * z, (j + 1) * z); } if ((a > 0) !== (b > 0)) { sumLinea.moveTo(i * z, (j + 1) * z); sumLinea.lineTo((i + 1) * z, (j + 1) * z); } }
       }
@@ -2865,6 +3065,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     ctx.lineWidth = 1 / s; ctx.strokeStyle = COL[S.INF];
     ctx.globalAlpha = .34; ctx.setLineDash([2 / s, 4 / s]); ctx.stroke(sumPleno);
     ctx.globalAlpha = .2; ctx.setLineDash([1 / s, 7 / s]); ctx.stroke(sumLinea);
+    ctx.globalAlpha = .8; ctx.fillStyle = HUESO; ctx.fill(vias);
     ctx.restore();
   }
   // Rutas de las misiones en curso: de cada pista o tropa a su objetivo.
@@ -2881,6 +3082,13 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     for (const r of rotulos) if (enVista(r.x, r.y)) ctx.fillText(r.t + (r.mas ? ` +${r.mas}` : ''), r.x + 42 * fp, r.y + 3);
     if (!hay) return;
     ctx.strokeStyle = HUESO; ctx.globalAlpha = .32; ctx.lineWidth = 1; ctx.setLineDash([1, 5]); ctx.stroke(linea); ctx.setLineDash([]); ctx.globalAlpha = 1;
+  }
+  // Barra de escala: una celda del mapa es 1 km.
+  function dibujarEscala() {
+    if (!iniciada || st.fin) return;
+    const km = [5, 10, 20, 50, 100].find(k => k * 16 * s >= 70) || 100, w = km * 16 * s, x = cw / 2 - w / 2, y = ch - 14;
+    ctx.strokeStyle = GRIS; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, y - 4); ctx.lineTo(x, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y - 4); ctx.stroke();
+    ctx.fillStyle = GRIS; ctx.font = `10px ${MONO}`; ctx.textAlign = 'center'; ctx.fillText(`${km} km`, cw / 2, y - 5); ctx.textAlign = 'left';
   }
   function dibujar(a, now) {
     enPantalla(ctx);
@@ -2899,6 +3107,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     dibujarSatelites();
     dibujarCursor();
     enPantalla(ctx);
+    dibujarEscala();
     dibujarAncla();
     dibujarFlechas();
     pintarMini(v, now);
@@ -2921,7 +3130,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       const propios = urbe.barrios ? urbe.barrios.filter(b => b.dueno > 0).length : null, n = urbe.barrios ? urbe.barrios.length : 0;
       presencia = urbe.guar == null ? 'sin información' : [urbe.barrios ? `barrios ${propios}/${n}` : null, `guarnición ${Math.round(urbe.guar)}`, urbe.dano > .02 ? `daño ${Math.round(urbe.dano * 100)} %` : null, urbe.batalla ? 'en batalla' : null, urbe.ocupada && urbe.dueno > 0 ? `ocupada · resistencia ${Math.round(urbe.res * 100)} %` : null, urbe.edad > 900 ? `hace ${Math.round(urbe.edad * S.DT / 60)} min` : null].filter(Boolean).join(' · ');
     } else if (def && def.s === 0 && def.t === S.PISTA) presencia = `${def.hangar.length} aparatos en hangar`;
-    else if (propia) presencia = `${S.NOMBRES[propia.c]} · fuerza ${Math.round(propia.fuerza)}${propia.c === S.INF && !propia.camion ? ' · sin camión' : ''}`;
+    else if (propia) presencia = `${S.NOMBRES[propia.c]} · fuerza ${Math.round(propia.fuerza)}/${S.DATOS.clases[propia.c].fuerza}${propia.rota ? ' · quebrada, se rehace' : propia.fort >= 1 ? ' · atrincherada' : ''} · munición ${Math.round(propia.mun * 100)} % · combustible ${Math.round(propia.comb * 100)} %${propia.c === S.INF && !propia.camion ? ' · sin camión' : ''}`;
     return { p, v, def, urbe, cont, propia, zona, agua, baseP, propio, enemigo, titulo, presencia, especial: !!(def || urbe || cont || propia) };
   }
   const TIPOS_DEF = () => S.DATOS.instalaciones.tipos;
@@ -2934,7 +3143,14 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
   }
   function filasDelMenu() {
     const { l } = menuAb, p = l.p, f = [];
-    if (seleccion.size) {
+    if (st.despliegue) {
+      // Antes de la guerra solo se coloca la reserva, y solo en territorio propio.
+      const us = propiasTierra().filter(u => seleccion.has(u.id));
+      f.push({ sec: 'Despliegue', id: 'colocar', n: us.length ? 'Colocar aquí' : 'Selecciona compañías primero', col: '--hueso', b: us.length || '', ok: us.length > 0 && l.propio && !l.agua, motivo: !us.length ? '' : l.propio ? '' : 'solo en tu territorio',
+        run: () => { if (S.aplicar(st, 0, { t: 'colocar', ids: us.map(u => u.id), x: p.x, y: p.y })) { marca = { x: p.x, y: p.y, ms: performance.now() }; limpiarSeleccion(); pintarDespliegue(); } else aviso('ahí no se puede'); } });
+      return f;
+    }
+    if (seleccion.size && !menuAb.todo) {
       const us = propiasTierra().filter(u => seleccion.has(u.id)), m = us.filter(puedeMoverse);
       f.push({ sec: 'Tropas seleccionadas', id: 'mover', n: 'Mover aquí', col: '--hueso', b: m.length, ok: m.length > 0, motivo: m.length ? '' : 'sin camión', run: () => ordenarSeleccion(p) });
       if (l.urbe && l.urbe.dueno <= 0) f.push({ sec: 'Tropas seleccionadas', id: 'asaltar', n: 'Asaltar la ciudad', col: '--misil', b: m.length, ok: m.length > 0, run: () => ordenarSeleccion(p, 'asalto') });
@@ -2948,7 +3164,8 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       f.push({ sec: 'Área de control', id: 'zona-quitar', n: 'Quitar esta área', col: '--gris', ok: true, run: () => S.aplicar(st, 0, { t: 'quitarZona', id: z.id }) });
     }
     ['chica', 'media', 'grande'].forEach((n, r) => f.push({ sec: 'Designar área de control', id: 'zona-' + r, n, col: '--hueso', b: `${S.DATOS.zonas.radios[r]}`, ok: true, run: () => { if (S.aplicar(st, 0, { t: 'zona', x: p.x, y: p.y, r, prio: 2, max: 2 })) { marca = { x: p.x, y: p.y, ms: performance.now() }; aviso('área de control designada'); } else aviso('demasiadas áreas'); } }));
-    if (l.urbe && l.urbe.dueno > 0) for (const c of [S.INF, S.BLI]) { const cl = S.DATOS.clases[c], motivo = S.puedeReclutar(st, 0, c, l.urbe.id); f.push({ sec: 'Reclutar', id: 'reclutar', dc: c, n: S.NOMBRES[c], col: VAR[c], b: cl.costo, em: motivo || reloj(cl.obra), ok: !motivo, run: () => reclutar(c, { u: l.urbe.id }, l.urbe) }); }
+    if (l.urbe && l.urbe.dueno > 0 && l.urbe.capital) for (const c of TIERRA) { const cl = S.DATOS.clases[c], motivo = S.puedeReclutar(st, 0, c, l.urbe.id); f.push({ sec: 'Reclutar', id: 'reclutar', dc: c, n: S.NOMBRES[c], col: VAR[c], b: cl.costo, em: motivo || reloj(cl.obra), ok: !motivo, run: () => reclutar(c, { u: l.urbe.id }, l.urbe) }); }
+    if (l.def && l.def.s === 0 && l.def.t === S.RADAR) { const d = l.def; f.push({ sec: 'Radar', id: 'radar', n: d.off ? 'Encender (ve lejos, se delata)' : 'Apagar (no ve, no lo oyen)', col: '--espia', ok: true, run: () => { S.aplicar(st, 0, { t: 'radar', id: d.id, on: !!d.off }); aviso(d.off ? 'radar apagado' : 'radar encendido'); } }); }
     if (l.def && l.def.s === 0 && l.def.t === S.PISTA) for (const c of [S.CAZA, S.ATAQUE, S.DRON, S.ESPIA, S.MISIL]) { const cl = S.DATOS.clases[c], motivo = S.puedeComprarAire(st, 0, c, l.def.id); f.push({ sec: 'Comprar para esta pista', id: 'comprar', dc: c, n: S.NOMBRES[c], col: VAR[c], b: cl.costo, em: motivo || reloj(cl.obra), ok: !motivo, run: () => reclutar(c, { d: l.def.id }, l.def) }); }
     if (!l.agua && (l.propio || l.baseP)) TIPOS_DEF().forEach((ti, d) => { const motivo = S.puedeConstruir(st, 0, d, p.x, p.y); f.push({ sec: `Construir · ${st.god ? '∞' : Math.floor(st.creditos[0])} créditos`, id: 'construir', dd: d, n: ti.nombre, col: VAR_DEF[d], tri: true, b: ti.costo, em: motivo || reloj(ti.obra), ok: !motivo, run: () => { const m = st.sigM++; if (S.aplicar(st, 0, { t: 'construir', d, x: p.x, y: p.y, m })) marca = { x: p.x, y: p.y, ms: performance.now() }; else aviso('no se pudo construir aquí'); } }); });
     return f;
@@ -2964,11 +3181,11 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     const t1 = document.createElement('b'); t1.textContent = l.titulo;
     const t2 = document.createElement('span'); t2.textContent = l.presencia;
     cab.append(t1, t2); caja.appendChild(cab);
-    if (seleccion.size) {
+    if (seleccion.size && !menuAb.todo && !st.despliegue) {
       const v = document.createElement('button');
       v.type = 'button'; v.className = 'op ver'; v.dataset.a = 'ver-todas'; v.setAttribute('role', 'menuitem');
-      const et = document.createElement('span'); et.textContent = 'ver todas las opciones (quita la selección)'; v.appendChild(et);
-      v.addEventListener('click', () => { limpiarSeleccion(); pintarMenu(); });
+      const et = document.createElement('span'); et.textContent = 'ver todas las opciones'; v.appendChild(et);
+      v.addEventListener('click', () => { menuAb.todo = true; pintarMenu(); });
       caja.appendChild(v);
     }
     let grupo = null, primera = null;
@@ -3054,12 +3271,14 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       total += plan.paquete[k];
       if (plan.paquete[k]) etaMax = Math.max(etaMax, ...lista.slice(0, plan.paquete[k]).map(q => Math.hypot(q.d.x - p.x, q.d.y - p.y) / st.v[k]));
     }
-    if (T.tierra) for (const k of [S.INF, S.BLI]) {
-      const L = tropasDisponibles(k, p);
-      plan.tropas[k] = Math.min(plan.tropas[k], L.length);
-      fila(k === S.INF ? 'infantería en camión' : S.NOMBRES[k], VAR[k], L.length, plan.tropas[k], v => { plan.tropas[k] = v; });
-      total += plan.tropas[k];
-      for (const u of L.slice(0, plan.tropas[k])) { const e = S.etaRuta(st, u.c, u.x, u.y, p.x, p.y); if (Number.isFinite(e)) etaMax = Math.max(etaMax, e + S.DATOS.embarque.subir); }
+    if (T.tierra) {
+      // La misión solo mueve la tropa que tú seleccionaste: nunca toma compañías por su cuenta.
+      const us = propiasTierra().filter(u => seleccion.has(u.id) && puedeMoverse(u));
+      plan.ids = us.map(u => u.id); total += us.length;
+      for (const u of us) { const e = S.etaRuta(st, u.c, u.x, u.y, p.x, p.y); if (Number.isFinite(e)) etaMax = Math.max(etaMax, e + S.DATOS.embarque.subir); }
+      const tp = document.createElement('p'); tp.className = 'ptropa';
+      tp.textContent = us.length ? `Tropa: ${us.length} ${us.length === 1 ? 'compañía seleccionada' : 'compañías seleccionadas'}` : 'Sin tropa seleccionada. Para que vaya tropa, cierra, selecciona las compañías y vuelve a abrir la misión.';
+      c.appendChild(tp);
     }
     const est = document.createElement('p'); est.className = 'peta'; est.textContent = total ? `llegada en ${reloj(etaMax)}` : 'elige al menos una unidad'; c.appendChild(est);
     const b = document.createElement('div'); b.className = 'acciones';
@@ -3072,7 +3291,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
   function lanzarPlan() {
     if (!plan) return;
     const T = S.DATOS.misiones[plan.tipo], ids = [];
-    if (T.tierra) for (const k of [S.INF, S.BLI]) ids.push(...tropasDisponibles(k, plan.p).slice(0, plan.tropas[k]).map(u => u.id));
+    if (T.tierra) ids.push(...(plan.ids || []));
     const q = plan.p, tipo = plan.tipo, paquete = { ...plan.paquete };
     const id = S.aplicar(st, 0, { t: 'mision', tipo, x: q.x, y: q.y, paquete, ids });
     if (id) { marca = { x: q.x, y: q.y, ms: performance.now() }; aviso(`misión M${id} en marcha`); } else aviso('no se pudo lanzar');
@@ -3141,7 +3360,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
   function pintarFuerzas(v) {
     const caja = $('fuerzas');
     caja.textContent = '';
-    const tierra = [S.INF, S.BLI].map(c => ({ c, n: v.propias.filter(u => u.c === c).length }));
+    const tierra = TIERRA.map(c => ({ c, n: v.propias.filter(u => u.c === c).length }));
     const fila = (c, txt, val) => {
       const d = document.createElement('div'); d.className = 'f';
       const i = document.createElement('i'); i.style.setProperty('--c', `var(${VAR[c]})`);
@@ -3257,6 +3476,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
   }
   function saltar() {
     if (st.fin || !$('parte').hidden || !$('plan').hidden) return;
+    if (st.despliegue) { aviso('primero coloca tu tropa y pulsa «Empezar la guerra»', 2600); return; }
     if (saltando) { saltando = false; vel = velAntes; pintarVel(); aviso('salto cancelado'); return; }
     saltando = true; velAntes = vel; vel = 80; pausaPorPlan = false;
     if (!corriendo) { corriendo = true; $('pausa').textContent = 'pausa'; }
@@ -3264,6 +3484,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
   }
   function alternarPausa() {
     if (st.fin || !$('parte').hidden) return;
+    if (st.despliegue) { aviso('primero coloca tu tropa y pulsa «Empezar la guerra»', 2600); return; }
     if (saltando) { saltando = false; vel = velAntes; pintarVel(); }
     pausaPorPlan = false;
     corriendo = !corriendo;
@@ -3284,8 +3505,22 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     }
   }
   function empezar() {
-    Sonido.iniciar(); iniciada = true; abrirParte(false); corriendo = true; tGuardado = performance.now();
-    $('pausa').textContent = 'pausa'; $('aviso').textContent = '';
+    Sonido.iniciar(); iniciada = true; abrirParte(false); corriendo = !st.despliegue; tGuardado = performance.now();
+    $('pausa').textContent = corriendo ? 'pausa' : 'seguir'; $('aviso').textContent = '';
+    pintarDespliegue();
+  }
+  // Fase de despliegue: el reloj espera mientras colocas la reserva.
+  function pintarDespliegue() {
+    const caja = $('despliegue');
+    caja.hidden = !st.despliegue || !iniciada;
+    if (caja.hidden) return;
+    const cap = st.urbes.find(u => u.capital && u.dueno > 0), enReserva = propiasTierra().filter(u => Math.hypot(u.x - cap.x, u.y - cap.y) < 90).length;
+    $('despTexto').textContent = `Tu tropa está en reserva alrededor de la capital (${enReserva} sin colocar). Selecciona compañías y haz clic en tu territorio para colocarlas donde quieras. El reloj no corre todavía.`;
+  }
+  function iniciarGuerra() {
+    if (!S.aplicar(st, 0, { t: 'iniciar' })) return;
+    limpiarSeleccion(); cerrarMenu(); pintarDespliegue();
+    corriendo = true; $('pausa').textContent = 'pausa'; tGuardado = performance.now(); aviso('la guerra empieza', 2200);
   }
   const conClic = (id, f) => $(id).addEventListener('click', e => { f(); if (e.detail) e.currentTarget.blur(); });
   conClic('titulo', () => location.reload());
@@ -3303,6 +3538,8 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
   conClic('caja', () => alternarCaja());
   conClic('ayuda', () => abrirParte($('parte').hidden));
   conClic('empezar', empezar);
+  conClic('despAuto', () => { if (S.aplicar(st, 0, { t: 'desplegarAuto' })) { limpiarSeleccion(); cerrarMenu(); pintarDespliegue(); aviso('tropa repartida por las ciudades del frente', 2400); } });
+  conClic('despIniciar', iniciarGuerra);
   conClic('tutorial', iniciarTutorial);
   conClic('continuar', () => { continuar(); });
   conClic('guardar', () => guardar(true));
@@ -3396,7 +3633,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
   const lista = a => a.map((n, c) => (n ? `${n} ${S.NOMBRES[c]}` : '')).filter(Boolean).join(', ');
   function registrar(txt, grave, lugar) {
     const r = $('registro'), d = document.createElement('div');
-    d.textContent = `${mmss(st.t)} ${txt}`;
+    const min = S.minutoDe(st); d.textContent = `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')} ${txt}`;   // hora del día, como el reloj de arriba
     if (grave) d.className = 'grave';
     if (lugar) { d.classList.add('ir'); d.title = 'Ir a ese lugar'; d.addEventListener('click', () => { acabarTrans(); centrar(lugar.x, lugar.y); }); }
     r.appendChild(d);
@@ -3429,7 +3666,9 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     const v = S.vista(st, 0), n = st.ter.ctrl.length - st.mapa.der.bloqueo.reduce((a, q) => a + q, 0), pct = k => Math.round(100 * k / n);
     let mem = 0; for (const d of st.mem[0]) if (d === -1) mem++;
     const grises = v.contactos.filter(u => u.gris).length;
-    $('estado').textContent = `T+${reloj(st.t * S.DT)} · terreno ${pct(st.ter.cuenta[0])} % · enemigo ~${pct(mem)} %${v.contactos.length ? ` · contactos ${v.contactos.length}${grises ? ` (${grises} grises)` : ''}` : ''}`;
+    const hh = String(Math.floor(v.minuto / 60)).padStart(2, '0'), mm = String(v.minuto % 60).padStart(2, '0'), dia = 1 + Math.floor((S.DATOS.reloj.inicio + st.t / 30) / 1440);
+    if (v.noche !== eraNoche) { if (eraNoche !== null && iniciada && !st.despliegue) registrar(v.noche ? 'Anochece: la tropa ve menos y el satélite óptico no ve' : 'Amanece', false); eraNoche = v.noche; }
+    $('estado').textContent = `día ${dia} · ${hh}:${mm}${v.noche ? ' · noche' : ''}${v.tormenta ? ' · tormenta' : ''} · terreno ${pct(st.ter.cuenta[0])} % · enemigo ~${pct(mem)} %${v.contactos.length ? ` · contactos ${v.contactos.length}${grises ? ` (${grises} grises)` : ''}` : ''}`;
     const urb = v.ciudades, tot = urb.length, meta = Math.ceil(tot * S.DATOS.victoria.fraccion), mias = urb.filter(c => c.dueno > 0).length, suyas = urb.filter(c => c.dueno < 0).length;
     const mk = $('marcador'); mk.textContent = '';
     const fila = document.createElement('span'); fila.className = 'fila';
@@ -3441,7 +3680,8 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     const sat = $('sat'); sat.textContent = '';
     S.satelites(st, 0).forEach(q => { const e = document.createElement('span'); if (q.activo) e.className = 'activo'; e.textContent = `${q.nombre} ${q.activo ? 'pasando ' : ''}${reloj(q.faltan)}`; sat.appendChild(e); });
     const ag = st.agot.map(a => Math.max(0, Math.round((1 - a) * 100)));
-    $('moral').textContent = `moral ${ag[0]} % · enemiga ${ag[1]} %`; $('moral').classList.toggle('grave', ag[0] <= 25);
+    const tope = S.DATOS.abastos.reserva.base + S.DATOS.abastos.reserva.porDeposito * v.defensas.filter(d => d.t === S.DEPOSITO && st.t >= d.listo).length;
+    $('moral').textContent = `abastos ${Math.round(v.abastos)}/${tope} · moral ${ag[0]} % · enemiga ${ag[1]} %`; $('moral').classList.toggle('grave', ag[0] <= 25);
     const renta = urb.filter(c => c.dueno > 0).reduce((a, c) => a + (c.capital ? S.DATOS.ciudad.capital : 1) * S.DATOS.ciudad.ingreso * (1 - (c.dano || 0) * .6) * (c.suministro ? 1 : .3), 0) * (1 - S.DATOS.agotamiento.ingreso * Math.min(1, st.agot[0]));
     $('creditos').textContent = st.god ? 'créditos ∞' : `créditos ${Math.floor(st.creditos[0])} · +${Math.round(renta)}/min`;
     pintarOrdenes(v); pintarBatallas(v); pintarFuerzas(v);
@@ -3471,7 +3711,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
   let tHud = 0, cerrado = false;
   // ── Tutorial: una partida real con el enemigo quieto. Cada paso avanza cuando haces la acción. ──
   const CLAVE_TUTO = 'doctrina.tutorial';
-  let tuto = null, consejoAbierto = false;
+  let tuto = null, consejoAbierto = false, eraNoche = null;
   const recuerda = k => { try { return !!localStorage.getItem(k); } catch (_) { return false; } };
   const anota = k => { try { localStorage.setItem(k, '1'); } catch (_) { /* sin almacenamiento */ } };
   const miTierra = () => st.unidades.filter(u => !u.dead && u.s === 0 && !u.aire);
@@ -3506,7 +3746,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       boton: 'Entendido' },
     { t: 'Saltar el tiempo', x: () => 'Pulsa «▸ evento», o N: el juego avanza rápido y se detiene solo cuando pasa algo importante.', foco: ['salto'],
       listo: () => saltando },
-    { t: 'Cómo se gana', x: () => 'Toma la capital enemiga, mantén dos tercios de las ciudades cinco minutos, o agota la moral enemiga (panel derecho) antes que la tuya. Un clic en terreno propio permite construir defensas; en una ciudad propia, reclutar. El botón ? repite las reglas.',
+    { t: 'Cómo se gana', x: () => 'Toma la capital enemiga, mantén dos tercios de las ciudades cinco minutos, o agota la moral enemiga (panel derecho) antes que la tuya. Un clic en terreno propio permite construir defensas; en tu capital, reclutar. Lo nuevo nace en la capital y viaja al frente: por los caminos de tu territorio (puntos claros) va cuatro veces más rápido. El botón ? repite las reglas.',
       final: true },
   ];
   function irA(p) { acabarTrans(); centrar(p.x, p.y); }
