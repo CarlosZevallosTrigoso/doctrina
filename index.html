@@ -239,6 +239,7 @@ button:focus-visible { outline: 1px solid var(--hueso); outline-offset: 1px; }
         <li><b>Batallas:</b> cada ciudad tiene barrios (los cuadritos). Una batalla los disputa uno a uno; cuando el atacante tiene la mayoría, la ciudad cae. Clic en una batalla de la lista te lleva allí.</li>
         <li><b>Ocupación:</b> una ciudad tomada necesita guarnición. Si no, surge resistencia y puede sublevarse. Bombardearla ayuda a tomarla, pero luego produce menos y es más hostil.</li>
         <li><b>Suministro:</b> viene de tu capital y tus depósitos por tu territorio. Lo que queda cortado rinde menos y se desgasta. El agua solo se cruza por puentes, que se pueden destruir.</li>
+        <li><b>Signos:</b> cuatro esquinas alrededor de una compañía, atrincherada; una cola, en marcha; anillo que parpadea, subiendo o bajando del camión. Un arco alrededor es la fuerza que le queda, rojo si es poca. La barra sobre una batalla es la balanza: la parte llena es tuya. La línea punteada clara marca tu abastecimiento pleno y la más tenue, hasta dónde una tropa no queda cercada. Las punteadas hacia un objetivo son misiones en curso.</li>
         <li><b>Moral:</b> la guerra cansa. Cada compañía o avión perdido y cada ciudad que cae bajan la moral del país; tomar ciudades la sube, y el tiempo la gasta despacio. Con la moral baja las ciudades rinden y resisten menos. En cero, el país colapsa y pierde. Los misiles y drones gastados casi no pesan.</li>
         <li><b>Cerco:</b> una compañía detenida lejos de tu línea de abastecimiento se rinde a los 5 minutos. Una ciudad cortada de tu capital y tus depósitos capitula a los 6 si el enemigo ya llega hasta ella. Un depósito o recuperar el territorio rompe el cerco.</li>
         <li><b>Tiempo:</b> al acelerar, la velocidad vuelve sola a ×1 cuando hay una batalla, cae una ciudad o llega un parte. <kbd>N</kbd> avanza hasta el próximo evento y pausa.</li>
@@ -2029,7 +2030,7 @@ const DOCTRINA = (() => {
         return {
           id: u.id, nombre: u.nombre, x: u.x, y: u.y, capital: u.capital, n: u.celdas.length, barrios: st.fin || u.dueno === signo || v[celdaDe(st, u.x, u.y)] ? u.barrios : null, desde: u.desde,
           dueno: conocida ? q.dueno : duenoMayoria(u.celdas, k => st.mem[s][k]), guar: conocida ? q.guar : null, moral: conocida ? q.moral : null, dano: conocida ? q.dano : null, edad: conocida ? st.t - q.t : Infinity,
-          batalla: (u.dueno === signo || v[celdaDe(st, u.x, u.y)]) ? u.batalla : null, ocupada: u.ocupada, res: u.dueno === signo ? u.res : 0, suministro: conSuministro(st, s, u.x, u.y), prog: u.prog,
+          batalla: (u.dueno === signo || v[celdaDe(st, u.x, u.y)]) ? u.batalla : null, ocupada: u.ocupada, res: u.dueno === signo ? u.res : 0, suministro: conSuministro(st, s, u.x, u.y), prog: u.prog, cerco: u.dueno === signo ? u.cerco : 0,
         };
       }),
     };
@@ -2455,6 +2456,20 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
         const R = (34 + (calma ? 0 : 3 * Math.sin(performance.now() / 260))) * fp;
         ctx.strokeStyle = COL[S.MISIL]; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(x, y, R, 0, TAU); ctx.stroke();
       }
+      if (c.batalla) {
+        // Balanza: la parte llena es tu fuerza en la batalla; la marca central, el empate.
+        const P = c.batalla.P, tot = P[0] + P[1], w = 46 * fp, bx = x - w / 2, by = y - 46 * fp;
+        if (tot > 0) {
+          ctx.fillStyle = NEGRO; ctx.fillRect(bx, by, w, 4);
+          ctx.fillStyle = HUESO; ctx.fillRect(bx, by, w * P[0] / tot, 4);
+          ctx.strokeStyle = HUESO; ctx.lineWidth = 1; ctx.strokeRect(bx, by, w, 4);
+          ctx.strokeStyle = COL[S.MISIL]; ctx.beginPath(); ctx.moveTo(x, by - 2.5); ctx.lineTo(x, by + 6.5); ctx.stroke();
+        }
+      }
+      if (c.cerco > 0 && c.dueno > 0) {
+        ctx.strokeStyle = COL[S.MISIL]; ctx.lineWidth = 1.2; ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.arc(x, y, 25 * fp, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = COL[S.MISIL]; ctx.fillText('cercada ' + reloj(S.DATOS.cerco.ciudad - c.cerco), x, y + (conNombre ? 48 : 36) * fp);
+      }
       if (c.ocupada && c.dueno > 0) { ctx.strokeStyle = COL[S.DRON]; ctx.lineWidth = 1; ctx.setLineDash([2, 3]); ctx.strokeRect(x0 - 3, y0 - 3, L + 6, L + 6); ctx.setLineDash([]); }
       if (conNombre) { ctx.fillStyle = GRIS; ctx.fillText(c.nombre, x, y + 36 * fp); }
     }
@@ -2480,6 +2495,7 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     }
     for (const [k, tr] of trazos) if (tr.g !== generacion) trazos.delete(k);
     const pro = trazosClase(), ene = trazosClase(), grises = new Path2D(), centros = new Path2D(), anillos = new Path2D(), camiones = new Path2D(), marchando = new Path2D();
+    const det = s >= niveles[1] * .95, trincheras = new Path2D(), colas = new Path2D(), arcos = new Path2D(), arcosBajos = new Path2D(), aisladas = [], CL = S.DATOS.clases;
     for (const u of todos) {
       const x = X(u.px + (u.x - u.px) * a), y = Y(u.py + (u.y - u.py) * a);
       if (!enVista(x, y, 80)) continue;
@@ -2488,16 +2504,42 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
       if (u.s === 0) {
         if (!u.aire && u.c === S.INF && (u.st === S.MARCHA || u.st === S.EMBARCANDO)) pro[u.c].rect(x - f, y - f * .8, f * 2, f * 1.6);
         else circulo(pro[u.c], x, y, f);
-        if (seleccion.has(u.id)) circulo(anillos, x, y, f + 4);
-        if (!u.aire && u.c === S.INF && u.st === S.DESPLEGADA && u.camion) camiones.rect(x + f + 2, y + f * .5, 3.4, 2.2);
+        if (seleccion.has(u.id)) circulo(anillos, x, y, f + 6.5);
+        if (!u.aire && u.c === S.INF && u.st === S.DESPLEGADA && u.camion) camiones.rect(x - 1.7, y + f + 4.6, 3.4, 2.2);
         if (!u.aire && (u.st === S.EMBARCANDO || u.st === S.DESEMBARCANDO)) circulo(marchando, x, y, f + 2.6);
+        if (!u.aire && det && u.st === S.DESPLEGADA) {
+          // Atrincherada: cuatro esquinas alrededor.
+          const h = f + 3.4, e = 2.4;
+          for (const [a1, b1] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { trincheras.moveTo(x + a1 * (h - e), y + b1 * h); trincheras.lineTo(x + a1 * h, y + b1 * h); trincheras.lineTo(x + a1 * h, y + b1 * (h - e)); }
+        }
+        if (!u.aire && u.sinSum > 0) aisladas.push([x, y, f, u.sinSum]);
       } else rombo(ene[u.c], x, y, u.aire ? 4.6 : 5);
+      if (!u.aire && det) {
+        if (u.st === S.MARCHA) {
+          // En marcha: una cola opuesta al avance.
+          let dx = u.x - u.px, dy = u.y - u.py; if (Math.hypot(dx, dy) < .01) { dx = u.tx - u.x; dy = u.ty - u.y; }
+          const n = Math.hypot(dx, dy);
+          if (n > .01) { dx /= n; dy /= n; colas.moveTo(x - dx * (f + 1.5), y - dy * (f + 1.5)); colas.lineTo(x - dx * (f + 10), y - dy * (f + 10)); }
+        }
+        const fr = u.fuerza / CL[u.c].fuerza;
+        if (fr < .95) { const q = fr < .4 ? arcosBajos : arcos, r = (u.s === 0 ? f : 5) + 1.9; q.moveTo(x, y - r); q.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + TAU * Math.max(.05, fr)); }
+      }
     }
     ctx.lineWidth = 1.2;
     for (let c = 0; c < COL.length; c++) { ctx.fillStyle = COL[c]; ctx.fill(pro[c]); ctx.strokeStyle = COL[c]; ctx.stroke(ene[c]); }
     ctx.strokeStyle = CONTACTO; ctx.stroke(grises); ctx.fillStyle = CONTACTO; ctx.fill(centros);
     ctx.fillStyle = COL[S.BLI]; ctx.fill(camiones);
-    ctx.strokeStyle = GRIS; ctx.lineWidth = .8; ctx.setLineDash([1.5, 2.5]); ctx.stroke(marchando); ctx.setLineDash([]);
+    ctx.globalAlpha = calma ? 1 : .35 + .65 * Math.abs(Math.sin(performance.now() / 320));
+    ctx.strokeStyle = HUESO; ctx.lineWidth = .9; ctx.setLineDash([1.5, 2.5]); ctx.stroke(marchando); ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = GRIS; ctx.lineWidth = 1; ctx.stroke(trincheras);
+    ctx.lineWidth = 1.4; ctx.stroke(colas);
+    ctx.strokeStyle = HUESO; ctx.lineWidth = 1.3; ctx.stroke(arcos); ctx.strokeStyle = COL[S.MISIL]; ctx.stroke(arcosBajos);
+    if (aisladas.length) {
+      ctx.strokeStyle = COL[S.MISIL]; ctx.fillStyle = COL[S.MISIL]; ctx.lineWidth = 1.1; ctx.setLineDash([3, 3]); ctx.font = `9px ${MONO}`; ctx.textAlign = 'center';
+      for (const [x, y, f, n] of aisladas) { ctx.beginPath(); ctx.arc(x, y, f + 9, 0, TAU); ctx.stroke(); ctx.fillText(reloj(S.DATOS.cerco.unidad - n), x, y - f - 12); }
+      ctx.setLineDash([]); ctx.textAlign = 'left';
+    }
     ctx.strokeStyle = HUESO; ctx.lineWidth = .9; ctx.stroke(anillos);
   }
   function dibujarFotos(v) {
@@ -2762,6 +2804,40 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     mi.addEventListener('pointerup', fin); mi.addEventListener('pointercancel', fin);
   })();
 
+  // Suministro: el borde interior es el abastecimiento pleno; el exterior, hasta dónde una tropa no queda cercada.
+  let sumClave = -1, sumPleno = null, sumLinea = null;
+  function dibujarSuministro() {
+    const clave = st.seed * 1e7 + (st.t - st.t % 150);
+    if (clave !== sumClave) {
+      sumClave = clave; sumPleno = new Path2D(); sumLinea = new Path2D();
+      const M = st.sum[0], c = st.ter.cols, r = st.ter.rows, z = st.ter.size;
+      for (let j = 0; j < r; j++) for (let i = 0; i < c; i++) {
+        const a = M[i + j * c];
+        if (i + 1 < c) { const b = M[i + 1 + j * c]; if ((a === 1) !== (b === 1)) { sumPleno.moveTo((i + 1) * z, j * z); sumPleno.lineTo((i + 1) * z, (j + 1) * z); } if ((a > 0) !== (b > 0)) { sumLinea.moveTo((i + 1) * z, j * z); sumLinea.lineTo((i + 1) * z, (j + 1) * z); } }
+        if (j + 1 < r) { const b = M[i + (j + 1) * c]; if ((a === 1) !== (b === 1)) { sumPleno.moveTo(i * z, (j + 1) * z); sumPleno.lineTo((i + 1) * z, (j + 1) * z); } if ((a > 0) !== (b > 0)) { sumLinea.moveTo(i * z, (j + 1) * z); sumLinea.lineTo((i + 1) * z, (j + 1) * z); } }
+      }
+    }
+    ctx.save(); ctx.setTransform(dpr * s, 0, 0, dpr * s, ox * dpr, oy * dpr);
+    ctx.lineWidth = 1 / s; ctx.strokeStyle = COL[S.INF];
+    ctx.globalAlpha = .34; ctx.setLineDash([2 / s, 4 / s]); ctx.stroke(sumPleno);
+    ctx.globalAlpha = .2; ctx.setLineDash([1 / s, 7 / s]); ctx.stroke(sumLinea);
+    ctx.restore();
+  }
+  // Rutas de las misiones en curso: de cada pista o tropa a su objetivo.
+  function dibujarRutas(v) {
+    const linea = new Path2D(), rotulos = []; let hay = false;
+    ctx.font = `9px ${MONO}`; ctx.fillStyle = GRIS;
+    for (const m of v.misiones) {
+      if (m.estado === 'fin') continue;
+      const tx = X(m.x), ty = Y(m.y); let n = 0;
+      for (const p of m.pend) { linea.moveTo(X(p.d.x), Y(p.d.y)); linea.lineTo(tx, ty); n++; }
+      for (const u of v.propias) if (u.m === m.id && (u.aire ? u.st === S.IDA : u.st !== S.DESPLEGADA)) { linea.moveTo(X(u.x), Y(u.y)); linea.lineTo(tx, ty); n++; }
+      if (n) { hay = true; const r = rotulos.find(q => Math.hypot(q.x - tx, q.y - ty) < 24); if (r) { if (++r.n <= 3) r.t += ' M' + m.id; else r.mas = r.n - 3; } else rotulos.push({ x: tx, y: ty, t: 'M' + m.id, n: 1, mas: 0 }); }
+    }
+    for (const r of rotulos) if (enVista(r.x, r.y)) ctx.fillText(r.t + (r.mas ? ` +${r.mas}` : ''), r.x + 42 * fp, r.y + 3);
+    if (!hay) return;
+    ctx.strokeStyle = HUESO; ctx.globalAlpha = .32; ctx.lineWidth = 1; ctx.setLineDash([1, 5]); ctx.stroke(linea); ctx.setLineDash([]); ctx.globalAlpha = 1;
+  }
   function dibujar(a, now) {
     enPantalla(ctx);
     ctx.fillStyle = NEGRO; ctx.fillRect(0, 0, cw, ch);
@@ -2770,6 +2846,8 @@ if (typeof module !== 'undefined') module.exports = DOCTRINA;
     componer();
     enMundo(ctx);
     const v = S.vista(st, 0);
+    dibujarSuministro();
+    dibujarRutas(v);
     dibujarObjetivos(v);
     dibujarFotos(v);
     dibujarUnidades(v, a);
